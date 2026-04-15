@@ -1,0 +1,7 @@
+cron:
+  # Check for overdue approvals and reviews — daily at 08:00 Berlin time
+  - description: "Overdue notification check"
+    url: /api/cron/overdue-check
+    schedule: every day 08:00
+    timezone: Europe/Berlin
+    target: api

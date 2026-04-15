@@ -1,0 +1,28 @@
+runtime: nodejs20
+service: api
+
+instance_class: F2
+
+env_variables:
+  NODE_ENV: "production"
+  PORT: "8080"
+
+automatic_scaling:
+  min_instances: 1
+  max_instances: 10
+  target_cpu_utilization: 0.65
+
+entrypoint: npx tsx apps/api/src/server.ts
+
+# Cloud SQL connection
+beta_settings:
+  cloud_sql_instances: INSTANCE_CONNECTION_NAME
+
+# Health check
+liveness_check:
+  path: /api/health
+  check_interval_sec: 30
+
+readiness_check:
+  path: /api/health
+  check_interval_sec: 10

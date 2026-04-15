@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-cream text-ink antialiased;
+    font-family: "DM Sans", system-ui, sans-serif;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-topbar-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-bronze text-white px-4 py-2 text-sm font-medium rounded-button
+           hover:bg-bronze-dark transition-colors duration-150;
+  }
+
+  .btn-secondary {
+    @apply border border-card-border text-ink px-4 py-2 text-sm font-medium rounded-button
+           hover:bg-warm transition-colors duration-150;
+  }
+
+  .btn-destructive {
+    @apply bg-health-red text-white px-4 py-2 text-sm font-medium rounded-button
+           hover:opacity-90 transition-opacity duration-150;
+  }
+
+  .card {
+    @apply bg-card-bg border border-card-border rounded-card;
+  }
+
+  .input {
+    @apply w-full px-3 py-2 text-sm border border-card-border rounded-input
+           bg-white text-ink placeholder:text-gray-400
+           focus:outline-none focus:ring-2 focus:ring-bronze/30 focus:border-bronze
+           transition-colors duration-150;
+  }
+
+  .label {
+    @apply block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1;
+  }
+}

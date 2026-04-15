@@ -1,0 +1,163 @@
+# Cloud Build Staging Pipeline (triggered on staging branch)
+
+substitutions:
+  _REGION: europe-west3
+  _PROJECT_ID: tenderfish-staging
+  _ARTIFACT_REGISTRY: ${_REGION}-docker.pkg.dev/${_PROJECT_ID}/tenderfish
+  _ENV: staging
+
+steps:
+  - name: node:20-alpine
+    id: install
+    entrypoint: npm
+    args: ["ci"]
+
+  - name: node:20-alpine
+    id: typecheck
+    entrypoint: npx
+    args: ["tsc", "--noEmit", "-p", "apps/api/tsconfig.json"]
+    waitFor: ["install"]
+
+  - name: node:20-alpine
+    id: typecheck-web
+    entrypoint: npx
+    args: ["tsc", "--noEmit", "-p", "apps/web/tsconfig.json"]
+    waitFor: ["install"]
+
+  - name: gcr.io/cloud-builders/docker
+    id: build-api
+    args:
+      - build
+      - -t
+      - ${_ARTIFACT_REGISTRY}/api:$COMMIT_SHA
+      - -f
+      - apps/api/Dockerfile
+      - .
+    waitFor: ["typecheck"]
+
+  - name: gcr.io/cloud-builders/docker
+    id: build-web
+    args:
+      - build
+      - -t
+      - ${_ARTIFACT_REGISTRY}/web:$COMMIT_SHA
+      - -f
+      - apps/web/Dockerfile
+      - --build-arg
+      - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+      - --build-arg
+      - NEXT_PUBLIC_API_URL=$$NEXT_PUBLIC_API_URL
+      - .
+    secretEnv:
+      - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+      - NEXT_PUBLIC_API_URL
+    waitFor: ["typecheck-web"]
+
+  - name: gcr.io/cloud-builders/docker
+    id: build-worker
+    args:
+      - build
+      - -t
+      - ${_ARTIFACT_REGISTRY}/worker:$COMMIT_SHA
+      - -f
+      - apps/worker/Dockerfile
+      - .
+    waitFor: ["typecheck"]
+
+  - name: gcr.io/cloud-builders/docker
+    id: push-api
+    args: ["push", "${_ARTIFACT_REGISTRY}/api:$COMMIT_SHA"]
+    waitFor: ["build-api"]
+
+  - name: gcr.io/cloud-builders/docker
+    id: push-web
+    args: ["push", "${_ARTIFACT_REGISTRY}/web:$COMMIT_SHA"]
+    waitFor: ["build-web"]
+
+  - name: gcr.io/cloud-builders/docker
+    id: push-worker
+    args: ["push", "${_ARTIFACT_REGISTRY}/worker:$COMMIT_SHA"]
+    waitFor: ["build-worker"]
+
+  - name: node:20-alpine
+    id: migrate
+    entrypoint: npx
+    args: ["drizzle-kit", "push", "--force"]
+    dir: packages/db
+    secretEnv:
+      - DATABASE_URL
+    waitFor: ["push-api"]
+
+  - name: gcr.io/cloud-builders/gcloud
+    id: deploy-api
+    args:
+      - run
+      - deploy
+      - api-${_ENV}
+      - --image=${_ARTIFACT_REGISTRY}/api:$COMMIT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --min-instances=0
+      - --max-instances=3
+      - --memory=512Mi
+      - --cpu=1
+      - --port=3001
+      - --set-env-vars=NODE_ENV=production
+      - --set-secrets=DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest,ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,CLERK_SECRET_KEY=CLERK_SECRET_KEY:latest
+      - --allow-unauthenticated
+    waitFor: ["migrate"]
+
+  - name: gcr.io/cloud-builders/gcloud
+    id: deploy-web
+    args:
+      - run
+      - deploy
+      - web-${_ENV}
+      - --image=${_ARTIFACT_REGISTRY}/web:$COMMIT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --min-instances=0
+      - --max-instances=3
+      - --memory=512Mi
+      - --cpu=1
+      - --port=3000
+      - --set-env-vars=NODE_ENV=production
+      - --allow-unauthenticated
+    waitFor: ["push-web"]
+
+  - name: gcr.io/cloud-builders/gcloud
+    id: deploy-worker
+    args:
+      - run
+      - deploy
+      - worker-${_ENV}
+      - --image=${_ARTIFACT_REGISTRY}/worker:$COMMIT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --min-instances=0
+      - --max-instances=2
+      - --memory=1Gi
+      - --cpu=2
+      - --timeout=90
+      - --no-allow-unauthenticated
+      - --set-secrets=DATABASE_URL=DATABASE_URL:latest,REDIS_URL=REDIS_URL:latest,ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest
+    waitFor: ["migrate"]
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/${_PROJECT_ID}/secrets/DATABASE_URL/versions/latest
+      env: DATABASE_URL
+    - versionName: projects/${_PROJECT_ID}/secrets/NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY/versions/latest
+      env: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+    - versionName: projects/${_PROJECT_ID}/secrets/NEXT_PUBLIC_API_URL/versions/latest
+      env: NEXT_PUBLIC_API_URL
+
+images:
+  - ${_ARTIFACT_REGISTRY}/api:$COMMIT_SHA
+  - ${_ARTIFACT_REGISTRY}/web:$COMMIT_SHA
+  - ${_ARTIFACT_REGISTRY}/worker:$COMMIT_SHA
+
+timeout: 900s
+
+options:
+  logging: CLOUD_LOGGING_ONLY

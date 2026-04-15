@@ -1,0 +1,709 @@
+"use client";
+
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Upload, FileText, ArrowRight, X, Check, Loader2 } from "lucide-react";
+import AppShell from "@/components/layout/AppShell";
+
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+interface UploadedFile {
+  file: File;
+  name: string;
+  size: number;
+  type: string;
+}
+
+interface JobStep {
+  key: string;
+  label: string;
+  status: string;
+}
+
+interface ExtractedFact {
+  id: string;
+  fieldName: string;
+  value: string | null;
+  dataState: string;
+  sourceRef: string | null;
+}
+
+export default function NewProjectPage() {
+  const [step, setStep] = useState(1);
+  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [briefingText, setBriefingText] = useState("");
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  // Step 2 form state
+  const [formData, setFormData] = useState({
+    name: "",
+    type: "",
+    location: "",
+    clientName: "",
+    procurementModel: "",
+    targetCompletion: "",
+    constraints: "",
+  });
+
+  // Step 3: job tracking
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [jobSteps, setJobSteps] = useState<JobStep[]>([]);
+  const [jobError, setJobError] = useState<string | null>(null);
+
+  // Step 4: facts from API
+  const [facts, setFacts] = useState<ExtractedFact[]>([]);
+  const [editedFacts, setEditedFacts] = useState<Record<string, string>>({});
+  const [gateChecks, setGateChecks] = useState<
+    { gate: string; pass: boolean; criteria: { key: string; label: string; met: boolean }[] }[]
+  >([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const canProceedStep1 = files.length > 0 || briefingText.trim().length > 0;
+
+  function getToken(): string | null {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("tf_token");
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragOver(false);
+    const dropped = Array.from(e.dataTransfer.files).map((f) => ({
+      file: f,
+      name: f.name,
+      size: f.size,
+      type: f.type,
+    }));
+    setFiles((prev) => [...prev, ...dropped]);
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.files) return;
+    const selected = Array.from(e.target.files).map((f) => ({
+      file: f,
+      name: f.name,
+      size: f.size,
+      type: f.type,
+    }));
+    setFiles((prev) => [...prev, ...selected]);
+  }
+
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  }
+
+  // ─── Submit to AI Pipeline ───────────────────────────────────
+
+  const startIntake = useCallback(async () => {
+    setStep(3);
+    setJobError(null);
+
+    const token = getToken();
+    const form = new FormData();
+
+    // Attach files
+    for (const f of files) {
+      form.append("files", f.file, f.name);
+    }
+
+    // Attach form context
+    form.append("projectName", formData.name || "");
+    form.append("pastedText", briefingText);
+    Object.entries(formData).forEach(([k, v]) => {
+      if (v) form.append(k, v);
+    });
+
+    try {
+      const res = await fetch(`${API}/api/projects/intake`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed to start analysis" }));
+        setJobError(err.error || "Failed to start analysis");
+        return;
+      }
+
+      const { data } = await res.json();
+      setJobId(data.jobId);
+      setProjectId(data.projectId);
+
+      // Start polling
+      pollRef.current = setInterval(() => pollJobStatus(data.jobId), 1500);
+    } catch {
+      setJobError("Network error — is the API server running?");
+    }
+  }, [files, formData, briefingText]);
+
+  async function pollJobStatus(jId: string) {
+    const token = getToken();
+    try {
+      const res = await fetch(`${API}/api/jobs/${jId}/status`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) return;
+
+      const { data } = await res.json();
+      setJobSteps(data.steps || []);
+
+      if (data.status === "complete") {
+        if (pollRef.current) clearInterval(pollRef.current);
+        setGateChecks(data.result?.gateChecks || []);
+        // Load facts from API
+        await loadProjectFacts(data.projectId);
+        setStep(4);
+      } else if (data.status === "failed") {
+        if (pollRef.current) clearInterval(pollRef.current);
+        setJobError(data.error || "Pipeline failed");
+      }
+    } catch {
+      // Ignore transient network errors during polling
+    }
+  }
+
+  async function loadProjectFacts(pId: string) {
+    const token = getToken();
+    try {
+      const res = await fetch(`${API}/api/projects/${pId}/facts`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const { data } = await res.json();
+        setFacts(data);
+      }
+    } catch {
+      // Non-critical
+    }
+  }
+
+  // Clean up polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
+  // ─── Confirm facts and finalize project ──────────────────────
+
+  async function confirmAndCreate() {
+    if (!projectId) return;
+    setIsSubmitting(true);
+    const token = getToken();
+
+    const factsPayload = facts.map((f) => ({
+      id: f.id,
+      value: editedFacts[f.id] !== undefined ? editedFacts[f.id] : f.value,
+      dataState: editedFacts[f.id] !== undefined ? "CONFIRMED" : f.dataState,
+    }));
+
+    try {
+      await fetch(`${API}/api/projects/${projectId}/facts/confirm`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ facts: factsPayload }),
+      });
+
+      window.location.href = `/projects/${projectId}/overview`;
+    } catch {
+      window.location.href = `/projects/${projectId}/overview`;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <AppShell>
+      <div className="max-w-3xl mx-auto space-y-8">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-semibold text-ink">New project</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Start with whatever you have. Tenderfish will structure it.
+          </p>
+        </div>
+
+        {/* Step indicator */}
+        <div className="flex items-center gap-2 text-sm">
+          {[1, 2, 3, 4].map((s) => (
+            <div key={s} className="flex items-center gap-2">
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${
+                  s === step
+                    ? "bg-bronze text-white"
+                    : s < step
+                    ? "bg-gate-complete text-white"
+                    : "bg-warm text-gray-400"
+                }`}
+              >
+                {s}
+              </div>
+              {s < 4 && (
+                <div
+                  className={`w-8 h-px ${
+                    s < step ? "bg-gate-complete" : "bg-warm"
+                  }`}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Step 1: Upload */}
+        {step === 1 && (
+          <div className="space-y-6">
+            {/* Drop zone */}
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragOver(true);
+              }}
+              onDragLeave={() => setIsDragOver(false)}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-card p-12 text-center transition-colors ${
+                isDragOver
+                  ? "border-bronze bg-bronze/5"
+                  : "border-card-border bg-white"
+              }`}
+            >
+              <Upload
+                size={40}
+                className="mx-auto mb-3 text-gray-300"
+              />
+              <p className="text-sm font-medium text-gray-600">
+                Drop files here, or click to browse
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                PDF · DOCX · MSG · EML · TXT · XLSX · JPG · PNG
+              </p>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.docx,.msg,.eml,.txt,.xlsx,.jpg,.jpeg,.png"
+                onChange={handleFileSelect}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                style={{ position: "relative" }}
+              />
+            </div>
+
+            {/* File list */}
+            {files.length > 0 && (
+              <div className="space-y-2">
+                {files.map((file, i) => (
+                  <div
+                    key={i}
+                    className="card flex items-center justify-between px-4 py-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText size={18} className="text-gray-400" />
+                      <div>
+                        <p className="text-sm font-medium text-ink">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {formatFileSize(file.size)}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => removeFile(i)}
+                      className="p-1 hover:bg-warm rounded-sm transition-colors"
+                    >
+                      <X size={16} className="text-gray-400" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Text alternative */}
+            <div>
+              <p className="text-sm text-gray-500 mb-2">
+                Or paste a project briefing here
+              </p>
+              <textarea
+                value={briefingText}
+                onChange={(e) => setBriefingText(e.target.value)}
+                placeholder="Paste any briefing text, email content, or project notes..."
+                className="input min-h-[120px] resize-y"
+              />
+            </div>
+
+            {/* Next */}
+            <div className="flex justify-end">
+              <button
+                onClick={() => setStep(2)}
+                disabled={!canProceedStep1}
+                className="btn-primary flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Next
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Quick Form */}
+        {step === 2 && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-lg font-medium">
+                Add context{" "}
+                <span className="text-gray-400 font-normal">
+                  (optional but helpful)
+                </span>
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                The more context you provide, the more accurate the initial
+                structure.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">Project name</label>
+                <input
+                  className="input"
+                  placeholder="e.g. Bürohaus Mitte"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <label className="label">Project type</label>
+                <select
+                  className="input"
+                  value={formData.type}
+                  onChange={(e) =>
+                    setFormData({ ...formData, type: e.target.value })
+                  }
+                >
+                  <option value="">Select type...</option>
+                  <option value="new_build">New Build</option>
+                  <option value="refurbishment">Refurbishment</option>
+                  <option value="conversion">Conversion</option>
+                  <option value="interior_fit_out">Interior Fit-Out</option>
+                  <option value="mixed_use">Mixed Use</option>
+                  <option value="not_sure">Not sure</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">City / Location</label>
+                <input
+                  className="input"
+                  placeholder="e.g. Berlin"
+                  value={formData.location}
+                  onChange={(e) =>
+                    setFormData({ ...formData, location: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <label className="label">Client name</label>
+                <input
+                  className="input"
+                  value={formData.clientName}
+                  onChange={(e) =>
+                    setFormData({ ...formData, clientName: e.target.value })
+                  }
+                />
+              </div>
+              <div>
+                <label className="label">Procurement model</label>
+                <select
+                  className="input"
+                  value={formData.procurementModel}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      procurementModel: e.target.value,
+                    })
+                  }
+                >
+                  <option value="">Select model...</option>
+                  <option value="general_contractor">General Contractor</option>
+                  <option value="single_trades">Single Trades</option>
+                  <option value="unclear">Unclear</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Target completion</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={formData.targetCompletion}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      targetCompletion: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="label">Known constraints</label>
+              <textarea
+                className="input min-h-[80px] resize-y"
+                placeholder="Any known planning restrictions, fixed deadlines, authority requirements..."
+                value={formData.constraints}
+                onChange={(e) =>
+                  setFormData({ ...formData, constraints: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="flex justify-between">
+              <button
+                onClick={() => setStep(1)}
+                className="btn-secondary"
+              >
+                ← Back
+              </button>
+              <button
+                onClick={startIntake}
+                className="btn-primary flex items-center gap-2"
+              >
+                Analyse project
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Processing */}
+        {step === 3 && (
+          <div className="card p-12 text-center space-y-8">
+            <div>
+              <h2 className="text-lg font-medium mb-2">
+                Analysing your project material...
+              </h2>
+              {jobError && (
+                <p className="text-sm text-red-600 mt-2">{jobError}</p>
+              )}
+            </div>
+
+            <div className="max-w-md mx-auto text-left space-y-3">
+              {(jobSteps.length > 0
+                ? jobSteps
+                : [
+                    { key: "upload", label: "Uploading files", status: "complete" },
+                    { key: "parsing", label: "Parsing documents", status: "pending" },
+                    { key: "extracting", label: "Extracting facts", status: "pending" },
+                    { key: "classifying", label: "Classifying project", status: "pending" },
+                    { key: "structuring", label: "Generating structure", status: "pending" },
+                    { key: "gates", label: "Checking gates", status: "pending" },
+                  ]
+              ).map((s, i) => (
+                <div key={i} className="flex items-center gap-3 text-sm">
+                  <span className="w-5 text-center">
+                    {s.status === "complete" ? (
+                      <Check size={16} className="text-gate-complete" />
+                    ) : s.status === "processing" ? (
+                      <Loader2 size={16} className="text-bronze animate-spin" />
+                    ) : (
+                      <span className="text-gray-300">○</span>
+                    )}
+                  </span>
+                  <span
+                    className={
+                      s.status === "complete"
+                        ? "text-gate-complete"
+                        : s.status === "processing"
+                        ? "text-ink font-medium"
+                        : "text-gray-400"
+                    }
+                  >
+                    {s.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {jobError && (
+              <button
+                onClick={() => { setStep(2); setJobError(null); }}
+                className="btn-secondary mt-4"
+              >
+                ← Go back and retry
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Step 4: Review */}
+        {step === 4 && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-lg font-medium">Review what we found</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Confirm, correct, or add to the extracted information before
+                creating the project.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-[280px_1fr] gap-6">
+              {/* Left: source files */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                  Source Files
+                </h3>
+                {files.length > 0 ? (
+                  files.map((f, i) => (
+                    <div key={i} className="card p-3 flex items-center gap-2">
+                      <FileText size={16} className="text-gray-400" />
+                      <span className="text-sm truncate">{f.name}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="card p-3 text-sm text-gray-400">
+                    Briefing text provided
+                  </div>
+                )}
+              </div>
+
+              {/* Right: extracted facts from AI */}
+              <div className="card overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-card-border bg-cream/50">
+                      <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                        Field
+                      </th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                        Value
+                      </th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                        State
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {facts.map((fact) => (
+                      <tr key={fact.id} className="border-b border-card-border last:border-0">
+                        <td className="px-4 py-3 text-gray-600">
+                          {fact.fieldName.replace(/_/g, " ")}
+                        </td>
+                        <td className="px-4 py-3">
+                          <input
+                            className="w-full bg-transparent text-ink font-medium border-b border-transparent hover:border-card-border focus:border-bronze focus:outline-none px-0 py-1"
+                            value={editedFacts[fact.id] !== undefined ? editedFacts[fact.id] : (fact.value || "")}
+                            onChange={(e) =>
+                              setEditedFacts({ ...editedFacts, [fact.id]: e.target.value })
+                            }
+                            placeholder="—"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <DataStateChip
+                            state={editedFacts[fact.id] !== undefined ? "CONFIRMED" : fact.dataState}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                    {facts.length === 0 && (
+                      <tr>
+                        <td colSpan={3} className="px-4 py-8 text-center text-gray-400">
+                          No facts extracted yet
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Gate checks */}
+            {gateChecks.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                  Gate Eligibility
+                </h3>
+                <div className="flex gap-3 flex-wrap">
+                  {gateChecks.map((gc) => (
+                    <div
+                      key={gc.gate}
+                      className="card p-3 flex items-center gap-2 min-w-[140px]"
+                    >
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          gc.pass ? "bg-gate-complete" : "bg-gray-300"
+                        }`}
+                      />
+                      <span className="text-sm font-medium">Gate {gc.gate}:</span>
+                      <span
+                        className={`text-sm font-medium ${
+                          gc.pass ? "text-gate-complete" : "text-gray-400"
+                        }`}
+                      >
+                        {gc.pass ? "PASS" : "LOCKED"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex justify-between">
+              <button
+                onClick={() => setStep(2)}
+                className="btn-secondary"
+              >
+                ← Back to edit
+              </button>
+              <button
+                onClick={confirmAndCreate}
+                disabled={isSubmitting}
+                className="btn-primary flex items-center gap-2 disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create project"
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </AppShell>
+  );
+}
+
+function DataStateChip({ state }: { state: string }) {
+  const styles: Record<string, string> = {
+    CONFIRMED: "bg-state-confirmed-bg text-state-confirmed-text border-state-confirmed-text",
+    DERIVED: "bg-state-derived-bg text-state-derived-text border-state-derived-text",
+    UNCLEAR: "bg-state-unclear-bg text-state-unclear-text border-state-unclear-text",
+    MISSING: "bg-state-missing-bg text-state-missing-text border-state-missing-text",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 text-xs font-mono font-medium rounded-sm border ${
+        styles[state] || styles.MISSING
+      }`}
+    >
+      {state}
+    </span>
+  );
+}

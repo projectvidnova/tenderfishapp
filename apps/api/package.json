@@ -1,0 +1,37 @@
+{
+  "name": "@tenderfish/api",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@clerk/fastify": "^2.0.0",
+    "@google-cloud/storage": "^7.14.0",
+    "@tenderfish/db": "*",
+    "@tenderfish/shared": "*",
+    "drizzle-orm": "^0.36.0",
+    "fastify": "^5.1.0",
+    "@fastify/cors": "^10.0.0",
+    "@fastify/multipart": "^9.0.0",
+    "@fastify/cookie": "^11.0.0",
+    "ioredis": "^5.4.1",
+    "mammoth": "^1.8.0",
+    "mailparser": "^3.7.1",
+    "pdf-parse": "^1.1.1",
+    "postgres": "^3.4.5",
+    "xlsx": "^0.18.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/mailparser": "^3.4.5",
+    "@types/node": "^22.9.0",
+    "@types/pdf-parse": "^1.1.4",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.3"
+  }
+}

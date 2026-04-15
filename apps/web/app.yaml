@@ -1,0 +1,19 @@
+runtime: nodejs20
+service: default
+
+instance_class: F2
+
+env_variables:
+  NODE_ENV: "production"
+  PORT: "8080"
+
+automatic_scaling:
+  min_instances: 1
+  max_instances: 10
+  target_cpu_utilization: 0.65
+
+build_env_variables:
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "PLACEHOLDER"
+  NEXT_PUBLIC_API_URL: "PLACEHOLDER"
+
+entrypoint: node apps/web/.next/standalone/apps/web/server.js
