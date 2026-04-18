@@ -5,10 +5,10 @@
 type HealthStatus = "on_track" | "at_risk" | "delayed" | "blocked";
 
 const colors: Record<HealthStatus, { dot: string; label: string }> = {
-  on_track: { dot: "bg-health-on-track", label: "On track" },
-  at_risk: { dot: "bg-health-at-risk", label: "At risk" },
-  delayed: { dot: "bg-health-delayed", label: "Delayed" },
-  blocked: { dot: "bg-health-blocked", label: "Blocked" },
+  on_track: { dot: "bg-status-success", label: "On track" },
+  at_risk: { dot: "bg-status-warning", label: "At risk" },
+  delayed: { dot: "bg-status-warning", label: "Delayed" },
+  blocked: { dot: "bg-status-danger", label: "Blocked" },
 };
 
 interface HealthDotProps {
@@ -21,7 +21,7 @@ export function HealthDot({ status, showLabel = true }: HealthDotProps) {
   return (
     <span className="inline-flex items-center gap-1.5">
       <span className={`w-2 h-2 rounded-full ${c.dot}`} />
-      {showLabel && <span className="text-sm font-medium">{c.label}</span>}
+      {showLabel && <span className="text-sm font-medium text-text-primary">{c.label}</span>}
     </span>
   );
 }

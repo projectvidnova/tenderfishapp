@@ -30,13 +30,13 @@ const STATUS_FLOW = [
 ];
 
 const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
-  draft: { label: "Draft", cls: "bg-gray-100 text-gray-500 border-gray-300" },
-  internally_reviewed: { label: "Internally Reviewed", cls: "bg-blue-100 text-blue-700 border-blue-300" },
-  approved_for_issue: { label: "Approved for Issue", cls: "bg-green-100 text-[#3F7A5A] border-green-300" },
-  issued: { label: "Issued", cls: "bg-purple-100 text-purple-700 border-purple-300" },
-  superseded: { label: "Superseded", cls: "bg-amber-100 text-amber-700 border-amber-300" },
-  awarded_baseline: { label: "Awarded Baseline", cls: "bg-bronze/10 text-bronze border-bronze/30" },
-  archived: { label: "Archived", cls: "bg-gray-200 text-gray-500 border-gray-300" },
+  draft: { label: "Draft", cls: "bg-bg-inset text-text-tertiary border-border" },
+  internally_reviewed: { label: "Internally Reviewed", cls: "bg-status-info-bg text-status-info-fg border-status-info-border" },
+  approved_for_issue: { label: "Approved for Issue", cls: "bg-status-success-bg text-status-approve border-status-success-border" },
+  issued: { label: "Issued", cls: "bg-status-purple-bg text-status-purple-fg border-status-purple-border" },
+  superseded: { label: "Superseded", cls: "bg-status-warning-bg text-status-warning-fg border-status-warning-border" },
+  awarded_baseline: { label: "Awarded Baseline", cls: "bg-brand-orange/10 text-brand-orange border-brand-orange/30" },
+  archived: { label: "Archived", cls: "bg-bg-inset text-text-tertiary border-border" },
 };
 
 type DocVersion = {
@@ -122,7 +122,7 @@ export default function DocumentsPage() {
   if (loading) {
     return (
       <AppShell>
-        <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Loading documents…</div>
+        <div className="flex items-center justify-center h-64 text-text-quaternary text-sm">Loading documents…</div>
       </AppShell>
     );
   }
@@ -135,7 +135,7 @@ export default function DocumentsPage() {
           <button
             onClick={() => setActiveType(null)}
             className={`block w-full text-left px-3 py-1.5 text-xs rounded-sm transition-colors ${
-              !activeType ? "bg-bronze/10 text-bronze font-medium" : "text-gray-500 hover:bg-cream/50"
+              !activeType ? "bg-brand-orange/10 text-brand-orange font-medium" : "text-text-tertiary hover:bg-bg-inset/50"
             }`}
           >
             All Documents
@@ -145,7 +145,7 @@ export default function DocumentsPage() {
               key={t}
               onClick={() => setActiveType(t)}
               className={`block w-full text-left px-3 py-1.5 text-xs rounded-sm transition-colors ${
-                activeType === t ? "bg-bronze/10 text-bronze font-medium" : "text-gray-500 hover:bg-cream/50"
+                activeType === t ? "bg-brand-orange/10 text-brand-orange font-medium" : "text-text-tertiary hover:bg-bg-inset/50"
               }`}
             >
               {t}
@@ -156,7 +156,7 @@ export default function DocumentsPage() {
         {/* Right content */}
         <div className="flex-1 space-y-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-semibold text-ink">
+            <h1 className="text-2xl font-semibold text-text-primary">
               {activeType || "All Documents"}
             </h1>
             <button className="btn-primary text-sm" onClick={() => setShowUpload(true)}>
@@ -167,36 +167,36 @@ export default function DocumentsPage() {
           <div className="card overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-card-border bg-cream/30">
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Name</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-28">Type</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-20">Version</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-32">Status</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-28">Updated</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-24">Action</th>
+                <tr className="border-b border-border bg-bg-inset/30">
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide">Name</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-28">Type</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-20">Version</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-32">Status</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-28">Updated</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-24">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {docs.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No documents found.</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-text-quaternary">No documents found.</td></tr>
                 ) : docs.map((doc) => {
                   const st = STATUS_LABELS[doc.status] || STATUS_LABELS.draft;
                   const lastVersion = doc.versions[doc.versions.length - 1];
                   return (
-                    <tr key={doc.id} className="border-b border-card-border last:border-0 hover:bg-cream/20">
-                      <td className="px-4 py-3 font-medium text-ink">{doc.name}</td>
-                      <td className="px-4 py-3 text-xs text-gray-500">{doc.type}</td>
-                      <td className="px-4 py-3 text-xs font-mono text-gray-500">v{doc.currentVersion}</td>
+                    <tr key={doc.id} className="border-b border-border last:border-0 hover:bg-bg-inset/20">
+                      <td className="px-4 py-3 font-medium text-text-primary">{doc.name}</td>
+                      <td className="px-4 py-3 text-xs text-text-tertiary">{doc.type}</td>
+                      <td className="px-4 py-3 text-xs font-mono text-text-tertiary">v{doc.currentVersion}</td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-sm border ${st.cls}`}>
                           {st.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-400 font-mono">
+                      <td className="px-4 py-3 text-xs text-text-quaternary font-mono">
                         {lastVersion ? new Date(lastVersion.date).toLocaleDateString() : "—"}
                       </td>
                       <td className="px-4 py-3">
-                        <button className="text-xs text-bronze hover:text-bronze-dark font-medium" onClick={() => setShowDetail(doc)}>
+                        <button className="text-xs text-brand-orange hover:text-brand-orange-dark font-medium" onClick={() => setShowDetail(doc)}>
                           View
                         </button>
                       </td>
@@ -235,15 +235,15 @@ export default function DocumentsPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-3 gap-3 text-sm">
               <div>
-                <span className="text-gray-500 text-xs">Type</span>
+                <span className="text-text-tertiary text-xs">Type</span>
                 <p>{showDetail.type}</p>
               </div>
               <div>
-                <span className="text-gray-500 text-xs">Current Version</span>
+                <span className="text-text-tertiary text-xs">Current Version</span>
                 <p className="font-mono">v{showDetail.currentVersion}</p>
               </div>
               <div>
-                <span className="text-gray-500 text-xs">Status</span>
+                <span className="text-text-tertiary text-xs">Status</span>
                 <p>
                   <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-sm border ${(STATUS_LABELS[showDetail.status] || STATUS_LABELS.draft).cls}`}>
                     {(STATUS_LABELS[showDetail.status] || STATUS_LABELS.draft).label}
@@ -254,14 +254,14 @@ export default function DocumentsPage() {
 
             {/* Version history */}
             <div>
-              <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Version History</h3>
+              <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-2">Version History</h3>
               <div className="space-y-2">
                 {showDetail.versions.map((v) => (
-                  <div key={v.version} className="flex items-center justify-between text-sm border-b border-card-border pb-2 last:border-0">
+                  <div key={v.version} className="flex items-center justify-between text-sm border-b border-border pb-2 last:border-0">
                     <div>
-                      <span className="font-mono text-xs text-gray-500">v{v.version}</span>
+                      <span className="font-mono text-xs text-text-tertiary">v{v.version}</span>
                       <span className="ml-2">{new Date(v.date).toLocaleDateString()}</span>
-                      {v.changesNote && <span className="ml-2 text-xs text-gray-400">— {v.changesNote}</span>}
+                      {v.changesNote && <span className="ml-2 text-xs text-text-quaternary">— {v.changesNote}</span>}
                     </div>
                     <span className={`inline-flex items-center px-1.5 py-0.5 text-xs rounded-sm ${(STATUS_LABELS[v.status] || STATUS_LABELS.draft).cls}`}>
                       {(STATUS_LABELS[v.status] || STATUS_LABELS.draft).label}
@@ -273,13 +273,13 @@ export default function DocumentsPage() {
 
             {/* Status transitions */}
             <div>
-              <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Change Status</h3>
+              <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-2">Change Status</h3>
               <div className="flex flex-wrap gap-2">
                 {STATUS_FLOW.filter((s) => s !== showDetail.status).map((s) => (
                   <button
                     key={s}
                     onClick={() => updateStatus(showDetail.id, s)}
-                    className="text-xs px-2 py-1 border border-card-border rounded-sm hover:bg-cream/50 transition-colors"
+                    className="text-xs px-2 py-1 border border-border rounded-sm hover:bg-bg-inset/50 transition-colors"
                   >
                     {(STATUS_LABELS[s] || { label: s }).label}
                   </button>
@@ -288,8 +288,8 @@ export default function DocumentsPage() {
             </div>
 
             {/* New version */}
-            <div className="border-t border-card-border pt-4">
-              <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Upload New Version</h3>
+            <div className="border-t border-border pt-4">
+              <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-2">Upload New Version</h3>
               <div className="flex gap-2 items-end">
                 <div className="flex-1">
                   <input className="input text-sm" value={changeNote} onChange={(e) => setChangeNote(e.target.value)} placeholder="Change note (optional)" />
@@ -301,7 +301,7 @@ export default function DocumentsPage() {
             </div>
 
             <div className="flex justify-end pt-2">
-              <button className="text-xs text-red-500 hover:text-red-700" onClick={() => deleteDoc(showDetail.id)}>Delete document</button>
+              <button className="text-xs text-status-danger hover:text-status-danger-fg" onClick={() => deleteDoc(showDetail.id)}>Delete document</button>
             </div>
           </div>
         )}

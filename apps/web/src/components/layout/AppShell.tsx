@@ -10,8 +10,8 @@ export default function AppLayout({
     <div className="min-h-screen">
       <Sidebar />
       <TopBar />
-      <main className="ml-sidebar mt-topbar min-h-[calc(100vh-64px)] bg-cream p-6">
-        {children}
+      <main className="ml-sidebar mt-topbar min-h-[calc(100vh-52px)] bg-bg-bg-bg-page p-8">
+        <div className="max-w-[1280px]">{children}</div>
       </main>
     </div>
   );

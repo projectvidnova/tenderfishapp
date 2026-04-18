@@ -5,10 +5,10 @@
 type GateStatus = "PASS" | "FAIL" | "BLOCKED" | "NOT_EVALUATED";
 
 const statusColors: Record<GateStatus, { ring: string; bg: string; text: string }> = {
-  PASS: { ring: "border-gate-complete", bg: "bg-gate-complete", text: "text-white" },
-  FAIL: { ring: "border-gate-fail", bg: "bg-gate-fail", text: "text-white" },
-  BLOCKED: { ring: "border-gate-blocked", bg: "bg-gate-blocked", text: "text-white" },
-  NOT_EVALUATED: { ring: "border-card-border", bg: "bg-white", text: "text-gray-400" },
+  PASS: { ring: "border-status-success", bg: "bg-status-success", text: "text-white" },
+  FAIL: { ring: "border-status-danger", bg: "bg-status-danger", text: "text-white" },
+  BLOCKED: { ring: "border-brand-orange", bg: "bg-brand-orange", text: "text-white" },
+  NOT_EVALUATED: { ring: "border-border", bg: "bg-white", text: "text-text-tertiary" },
 };
 
 interface GateBadgeProps {

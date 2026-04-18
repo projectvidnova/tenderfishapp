@@ -88,8 +88,8 @@ export function ProjectTopBar({ projectId }: { projectId: string }) {
 
   if (!project) {
     return (
-      <div className="h-14 border-b border-card-border bg-white flex items-center px-6">
-        <div className="h-4 w-48 bg-gray-100 rounded animate-pulse" />
+      <div className="h-14 border-b border-border bg-white flex items-center px-6">
+        <div className="h-4 w-48 bg-bg-inset rounded animate-pulse" />
       </div>
     );
   }
@@ -112,8 +112,8 @@ export function ProjectTopBar({ projectId }: { projectId: string }) {
     currentGate?.status === "complete"
       ? "text-gate-complete"
       : currentGate?.status === "in_progress"
-      ? "text-bronze"
-      : "text-gray-400";
+      ? "text-brand-orange"
+      : "text-text-quaternary";
 
   const gateStatusLabel =
     currentGate?.status === "complete"
@@ -125,12 +125,12 @@ export function ProjectTopBar({ projectId }: { projectId: string }) {
       : "Locked";
 
   return (
-    <div className="border-b border-card-border bg-white flex items-center justify-between px-6 py-3">
+    <div className="border-b border-border bg-white flex items-center justify-between px-6 py-3">
       <div className="flex items-center gap-4">
         {/* Project name — inline editable */}
         {editing ? (
           <input
-            className="text-lg font-semibold text-ink border-b-2 border-bronze bg-transparent focus:outline-none px-0"
+            className="text-lg font-semibold text-text-primary border-b-2 border-brand-orange bg-transparent focus:outline-none px-0"
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             onBlur={saveName}
@@ -142,7 +142,7 @@ export function ProjectTopBar({ projectId }: { projectId: string }) {
           />
         ) : (
           <h1
-            className="text-lg font-semibold text-ink cursor-pointer hover:text-bronze transition-colors group flex items-center gap-1.5"
+            className="text-lg font-semibold text-text-primary cursor-pointer hover:text-brand-orange transition-colors group flex items-center gap-1.5"
             onClick={() => {
               setEditName(project.name);
               setEditing(true);
@@ -151,13 +151,13 @@ export function ProjectTopBar({ projectId }: { projectId: string }) {
             {project.name}
             <Pencil
               size={14}
-              className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="text-text-quaternary opacity-0 group-hover:opacity-100 transition-opacity"
             />
           </h1>
         )}
 
         {/* LPH badge */}
-        <span className="text-xs font-mono font-semibold text-bronze bg-bronze/10 px-2 py-1 rounded-sm">
+        <span className="text-xs font-mono font-semibold text-brand-orange bg-brand-orange/10 px-2 py-1 rounded-sm">
           LPH {currentLph}
         </span>
 
@@ -170,7 +170,7 @@ export function ProjectTopBar({ projectId }: { projectId: string }) {
 
         {/* Health dot */}
         <span
-          className="inline-flex items-center gap-1.5 text-xs text-gray-500"
+          className="inline-flex items-center gap-1.5 text-xs text-text-tertiary"
           title={healthLabel}
         >
           <span className={`w-2 h-2 rounded-full ${healthColor}`} />
@@ -182,9 +182,9 @@ export function ProjectTopBar({ projectId }: { projectId: string }) {
       <div className="relative">
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="p-1.5 hover:bg-warm rounded-sm transition-colors"
+          className="p-1.5 hover:bg-bg-inset rounded-sm transition-colors"
         >
-          <MoreVertical size={18} className="text-gray-500" />
+          <MoreVertical size={18} className="text-text-tertiary" />
         </button>
         {menuOpen && (
           <>
@@ -192,30 +192,30 @@ export function ProjectTopBar({ projectId }: { projectId: string }) {
               className="fixed inset-0 z-40"
               onClick={() => setMenuOpen(false)}
             />
-            <div className="absolute right-0 top-full mt-1 bg-white border border-card-border rounded-card shadow-lg z-50 w-48 py-1">
+            <div className="absolute right-0 top-full mt-1 bg-white border border-border rounded-xl shadow-lg z-50 w-48 py-1">
               <button
                 onClick={() => {
                   setEditName(project.name);
                   setEditing(true);
                   setMenuOpen(false);
                 }}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-warm flex items-center gap-2"
+                className="w-full text-left px-4 py-2 text-sm hover:bg-bg-inset flex items-center gap-2"
               >
-                <Pencil size={14} className="text-gray-400" />
+                <Pencil size={14} className="text-text-quaternary" />
                 Edit project details
               </button>
               <button
                 onClick={() => setMenuOpen(false)}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-warm flex items-center gap-2"
+                className="w-full text-left px-4 py-2 text-sm hover:bg-bg-inset flex items-center gap-2"
               >
-                <Archive size={14} className="text-gray-400" />
+                <Archive size={14} className="text-text-quaternary" />
                 Archive
               </button>
               <button
                 onClick={() => setMenuOpen(false)}
-                className="w-full text-left px-4 py-2 text-sm hover:bg-warm flex items-center gap-2"
+                className="w-full text-left px-4 py-2 text-sm hover:bg-bg-inset flex items-center gap-2"
               >
-                <Download size={14} className="text-gray-400" />
+                <Download size={14} className="text-text-quaternary" />
                 Export audit pack
               </button>
             </div>

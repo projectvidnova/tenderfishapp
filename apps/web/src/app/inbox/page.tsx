@@ -72,27 +72,27 @@ export default function InboxPage() {
 
   const unreviewed = messages.filter((m) => m.status === "unreviewed").length;
 
-  if (loading) return <AppShell><div className="p-8 text-gray-400">Loading…</div></AppShell>;
+  if (loading) return <AppShell><div className="p-8 text-text-quaternary">Loading…</div></AppShell>;
 
   return (
     <AppShell>
       <div className="flex gap-0 h-[calc(100vh-80px)]">
         {/* Left: List panel */}
-        <div className="w-[360px] flex-shrink-0 border-r border-card-border flex flex-col">
+        <div className="w-[360px] flex-shrink-0 border-r border-border flex flex-col">
           {/* Header */}
-          <div className="p-4 border-b border-card-border">
-            <h1 className="text-lg font-semibold text-ink">
-              Inbox {unreviewed > 0 && <span className="text-xs bg-bronze text-white rounded-full px-2 py-0.5 ml-1">{unreviewed}</span>}
+          <div className="p-4 border-b border-border">
+            <h1 className="text-lg font-semibold text-text-primary">
+              Inbox {unreviewed > 0 && <span className="text-xs bg-brand-orange text-white rounded-full px-2 py-0.5 ml-1">{unreviewed}</span>}
             </h1>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-0 border-b border-card-border">
+          <div className="flex gap-0 border-b border-border">
             {STATUS_TABS.map((t) => (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`flex-1 px-2 py-2 text-xs font-medium transition-colors ${tab === t.key ? "text-bronze border-b-2 border-bronze" : "text-gray-400 hover:text-gray-600"}`}
+                className={`flex-1 px-2 py-2 text-xs font-medium transition-colors ${tab === t.key ? "text-brand-orange border-b-2 border-brand-orange" : "text-text-quaternary hover:text-text-secondary"}`}
               >
                 {t.label}
               </button>
@@ -112,28 +112,28 @@ export default function InboxPage() {
           {/* List */}
           <div className="flex-1 overflow-y-auto">
             {messages.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-8">No messages.</p>
+              <p className="text-sm text-text-quaternary text-center py-8">No messages.</p>
             ) : (
               messages.map((m) => (
                 <button
                   key={m.id}
                   onClick={() => setSelected(m)}
-                  className={`w-full text-left px-4 py-3 border-b border-card-border/40 hover:bg-cream/30 transition-colors ${selected?.id === m.id ? "bg-cream/50" : ""}`}
+                  className={`w-full text-left px-4 py-3 border-b border-border/40 hover:bg-bg-inset/30 transition-colors ${selected?.id === m.id ? "bg-bg-inset/50" : ""}`}
                 >
                   <div className="flex items-start justify-between">
-                    <span className="text-xs font-medium text-ink truncate max-w-[200px]">{m.fromEmail}</span>
-                    <span className="text-[10px] text-gray-400 flex-shrink-0">{new Date(m.createdAt).toLocaleDateString()}</span>
+                    <span className="text-xs font-medium text-text-primary truncate max-w-[200px]">{m.fromEmail}</span>
+                    <span className="text-[10px] text-text-quaternary flex-shrink-0">{new Date(m.createdAt).toLocaleDateString()}</span>
                   </div>
-                  <p className="text-xs text-gray-700 truncate mt-0.5">{m.subject}</p>
+                  <p className="text-xs text-text-secondary truncate mt-0.5">{m.subject}</p>
                   <div className="flex items-center gap-1.5 mt-1">
                     {m.attachmentCount > 0 && (
-                      <span className="text-[10px] text-gray-400">📎{m.attachmentCount}</span>
+                      <span className="text-[10px] text-text-quaternary">📎{m.attachmentCount}</span>
                     )}
                     {m.projectName && (
-                      <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">{m.projectName}</span>
+                      <span className="text-[10px] bg-status-info-light text-status-info-fg px-1.5 py-0.5 rounded">{m.projectName}</span>
                     )}
                     {m.status === "unreviewed" && (
-                      <span className="w-2 h-2 rounded-full bg-bronze flex-shrink-0" />
+                      <span className="w-2 h-2 rounded-full bg-brand-orange flex-shrink-0" />
                     )}
                   </div>
                 </button>
@@ -145,7 +145,7 @@ export default function InboxPage() {
         {/* Right: Detail panel */}
         <div className="flex-1 overflow-y-auto">
           {!selected ? (
-            <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+            <div className="flex items-center justify-center h-full text-text-quaternary text-sm">
               Select a message to view details
             </div>
           ) : (
@@ -153,19 +153,19 @@ export default function InboxPage() {
               {/* Header */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-ink">{selected.subject}</h2>
+                  <h2 className="text-lg font-semibold text-text-primary">{selected.subject}</h2>
                   <div className="flex gap-1">
                     {selected.status !== "archived" && (
                       <button
                         onClick={() => updateMessage(selected.id, { status: "archived" })}
-                        className="text-xs border border-card-border rounded px-2 py-1 hover:bg-cream/50"
+                        className="text-xs border border-border rounded px-2 py-1 hover:bg-bg-inset/50"
                       >
                         Archive
                       </button>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-gray-500">
+                <div className="flex items-center gap-3 text-xs text-text-tertiary">
                   <span>From: {selected.fromEmail}</span>
                   <span>{new Date(selected.createdAt).toLocaleString()}</span>
                 </div>
@@ -173,12 +173,12 @@ export default function InboxPage() {
 
               {/* Body */}
               <div className="card p-4">
-                <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">{selected.body}</pre>
+                <pre className="text-sm text-text-secondary whitespace-pre-wrap font-sans">{selected.body}</pre>
               </div>
 
               {/* Attachments placeholder */}
               {selected.attachmentCount > 0 && (
-                <div className="text-xs text-gray-400">
+                <div className="text-xs text-text-quaternary">
                   {selected.attachmentCount} attachment(s) — download/preview available when file storage is configured.
                 </div>
               )}
@@ -186,14 +186,14 @@ export default function InboxPage() {
               {/* AI Analysis */}
               {selected.aiSuggestions && (
                 <div className="card p-4 space-y-3">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">AI Analysis</h3>
+                  <h3 className="text-xs font-semibold text-text-tertiary uppercase tracking-wide">AI Analysis</h3>
 
                   {selected.aiSuggestions.suggestedProjectName && (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-600">
+                      <span className="text-xs text-text-secondary">
                         Suggested match: <strong>{selected.aiSuggestions.suggestedProjectName}</strong>
                         {selected.aiSuggestions.confidence && (
-                          <span className="text-gray-400 ml-1">— {Math.round(selected.aiSuggestions.confidence * 100)}%</span>
+                          <span className="text-text-quaternary ml-1">— {Math.round(selected.aiSuggestions.confidence * 100)}%</span>
                         )}
                       </span>
                       {selected.aiSuggestions.suggestedProjectId && !selected.projectId && (
@@ -208,7 +208,7 @@ export default function InboxPage() {
                   )}
 
                   {selected.aiSuggestions.documentType && (
-                    <div className="text-xs text-gray-600">
+                    <div className="text-xs text-text-secondary">
                       Document type: <span className="font-medium">{selected.aiSuggestions.documentType}</span>
                     </div>
                   )}
@@ -216,7 +216,7 @@ export default function InboxPage() {
                   {selected.aiSuggestions.signals.length > 0 && (
                     <div className="flex gap-1 flex-wrap">
                       {selected.aiSuggestions.signals.map((s, i) => (
-                        <span key={i} className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 rounded px-2 py-0.5">
+                        <span key={i} className="text-[10px] bg-status-warning-light text-status-warning-fg border border-status-warning-border rounded px-2 py-0.5">
                           {SIGNAL_LABELS[s] || s + "?"}
                         </span>
                       ))}
@@ -230,7 +230,7 @@ export default function InboxPage() {
                 {selected.status === "unreviewed" && (
                   <button
                     onClick={() => updateMessage(selected.id, { status: "assigned" })}
-                    className="text-xs border border-card-border rounded px-3 py-1.5 hover:bg-cream/50"
+                    className="text-xs border border-border rounded px-3 py-1.5 hover:bg-bg-inset/50"
                   >
                     Mark Reviewed
                   </button>

@@ -2,16 +2,41 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap");
-
 @layer base {
-  * {
+  *,
+  *::before,
+  *::after {
     box-sizing: border-box;
   }
 
+  html {
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
-    @apply bg-cream text-ink antialiased;
-    font-family: "DM Sans", system-ui, sans-serif;
+    @apply bg-bg-app text-text-primary;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter",
+      "Helvetica Neue", sans-serif;
+    line-height: 1.55;
+    letter-spacing: -0.01em;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-semibold text-text-primary;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
   }
 
   /* Custom scrollbar */
@@ -25,42 +50,167 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-topbar-border rounded-full;
+    @apply bg-border rounded-full;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-400;
+    background: #aeaeb2;
   }
 }
 
 @layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap
+           text-[0.8125rem] font-semibold cursor-pointer
+           transition-all duration-200;
+    padding: 7px 20px;
+    border-radius: 980px;
+  }
+
   .btn-primary {
-    @apply bg-bronze text-white px-4 py-2 text-sm font-medium rounded-button
-           hover:bg-bronze-dark transition-colors duration-150;
+    @apply bg-brand-orange text-white;
+  }
+  .btn-primary:hover {
+    @apply bg-brand-orange-hover;
   }
 
   .btn-secondary {
-    @apply border border-card-border text-ink px-4 py-2 text-sm font-medium rounded-button
-           hover:bg-warm transition-colors duration-150;
+    @apply text-text-primary;
+    background: none;
+    border: 1px solid #d2d2d7;
+  }
+  .btn-secondary:hover {
+    @apply bg-bg-inset;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-text-primary;
+    padding: 7px 16px;
+  }
+  .btn-ghost:hover {
+    @apply bg-bg-inset;
   }
 
   .btn-destructive {
-    @apply bg-health-red text-white px-4 py-2 text-sm font-medium rounded-button
-           hover:opacity-90 transition-opacity duration-150;
+    @apply bg-status-danger text-white;
+  }
+  .btn-destructive:hover {
+    @apply opacity-90;
+  }
+
+  .btn-sm {
+    @apply text-xs;
+    padding: 4px 12px;
+  }
+
+  .btn-lg {
+    @apply text-[0.9375rem];
+    padding: 12px 28px;
   }
 
   .card {
-    @apply bg-card-bg border border-card-border rounded-card;
+    @apply bg-white transition-all duration-200;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    border-radius: 20px;
+    box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.03), 0 2px 6px rgba(0, 0, 0, 0.02);
+  }
+  .card:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+  }
+
+  .card-header {
+    @apply flex items-center justify-between border-b border-border-light;
+    padding: 20px 24px;
+  }
+
+  .card-body {
+    padding: 20px 24px;
   }
 
   .input {
-    @apply w-full px-3 py-2 text-sm border border-card-border rounded-input
-           bg-white text-ink placeholder:text-gray-400
-           focus:outline-none focus:ring-2 focus:ring-bronze/30 focus:border-bronze
-           transition-colors duration-150;
+    @apply w-full text-[0.875rem] text-text-primary bg-white outline-none;
+    border: 1px solid #d2d2d7;
+    border-radius: 8px;
+    padding: 8px 12px;
+  }
+  .input:focus {
+    border-color: #E8622C;
+    box-shadow: 0 0 0 3px rgba(232, 98, 44, 0.08);
+  }
+  .input::placeholder {
+    @apply text-text-quaternary;
   }
 
   .label {
-    @apply block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1;
+    @apply block text-[0.8125rem] font-medium text-text-primary mb-1;
+  }
+
+  /* Badge system matching mockup */
+  .badge {
+    @apply inline-flex items-center gap-1 text-[0.6875rem] font-medium whitespace-nowrap;
+    padding: 2px 10px;
+    border-radius: 100px;
+  }
+  .badge-success {
+    @apply bg-status-success-light text-state-confirmed-text;
+  }
+  .badge-warning {
+    @apply bg-status-warning-light text-state-unclear-text;
+  }
+  .badge-danger {
+    @apply bg-status-danger-light text-state-missing-text;
+  }
+  .badge-info {
+    @apply bg-status-info-light text-status-info;
+  }
+  .badge-neutral {
+    @apply bg-bg-inset text-text-secondary;
+  }
+  .badge-accent {
+    @apply bg-brand-orange-light text-brand-orange;
+  }
+
+  /* Table styling */
+  .table-container {
+    @apply overflow-x-auto bg-white;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    border-radius: 16px;
+  }
+  .table-container table {
+    @apply w-full text-[0.8125rem];
+    border-collapse: collapse;
+  }
+  .table-container thead {
+    @apply bg-bg-inset border-b border-border;
+  }
+  .table-container thead th {
+    @apply text-left text-[0.75rem] font-medium uppercase tracking-wider text-text-tertiary;
+    padding: 10px 20px;
+  }
+  .table-container tbody tr {
+    @apply border-b border-border-light transition-colors duration-150;
+  }
+  .table-container tbody tr:last-child {
+    border-bottom: none;
+  }
+  .table-container tbody tr:hover {
+    @apply bg-bg-inset;
+  }
+  .table-container tbody td {
+    padding: 10px 20px;
+    vertical-align: middle;
+  }
+
+  /* Metric cards */
+  .metric-card {
+    @apply bg-white flex flex-col gap-2 transition-all duration-200;
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    border-radius: 20px;
+    padding: 32px;
+  }
+  .metric-card:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
   }
 }

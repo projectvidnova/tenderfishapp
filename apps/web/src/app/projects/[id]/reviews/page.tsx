@@ -18,16 +18,16 @@ const KANBAN_COLUMNS = [
 ] as const;
 
 const OUTCOME_LABELS: Record<string, { label: string; cls: string }> = {
-  approved: { label: "Approved", cls: "bg-emerald-100 text-emerald-700" },
-  approved_with_comments: { label: "Approved with Comments", cls: "bg-blue-100 text-blue-700" },
-  resubmission_required: { label: "Resubmission Required", cls: "bg-amber-100 text-amber-700" },
-  rejected: { label: "Rejected", cls: "bg-red-100 text-[#B04A3A]" },
+  approved: { label: "Approved", cls: "bg-status-emerald-bg text-status-emerald-fg" },
+  approved_with_comments: { label: "Approved with Comments", cls: "bg-status-info-bg text-status-info-fg" },
+  resubmission_required: { label: "Resubmission Required", cls: "bg-status-warning-bg text-status-warning-fg" },
+  rejected: { label: "Rejected", cls: "bg-status-danger-bg text-status-reject" },
 };
 
 const SEVERITY_LABELS: Record<string, { label: string; cls: string }> = {
-  minor: { label: "Minor", cls: "bg-blue-100 text-blue-700" },
-  major: { label: "Major", cls: "bg-amber-100 text-amber-700" },
-  critical: { label: "Critical", cls: "bg-red-100 text-[#B04A3A]" },
+  minor: { label: "Minor", cls: "bg-status-info-bg text-status-info-fg" },
+  major: { label: "Major", cls: "bg-status-warning-bg text-status-warning-fg" },
+  critical: { label: "Critical", cls: "bg-status-danger-bg text-status-reject" },
 };
 
 interface Deviation {
@@ -161,19 +161,19 @@ export default function ReviewsPage() {
     else grouped["received"].push(r);
   });
 
-  if (loading) return <AppShell><div className="p-8 text-gray-400">Loading…</div></AppShell>;
+  if (loading) return <AppShell><div className="p-8 text-text-quaternary">Loading…</div></AppShell>;
 
   return (
     <AppShell>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-ink">Shop Drawing Reviews</h1>
+          <h1 className="text-2xl font-semibold text-text-primary">Shop Drawing Reviews</h1>
           <button onClick={() => setShowNew(true)} className="btn-primary text-sm">+ New submission</button>
         </div>
 
         {/* Gate E note */}
-        <div className="bg-amber-50 border border-amber-200 rounded px-4 py-2 text-sm text-amber-700">
+        <div className="bg-status-warning-light border border-status-warning-border rounded px-4 py-2 text-sm text-status-warning-fg">
           Gate E must be activated before submissions are considered final.
         </div>
 
@@ -182,12 +182,12 @@ export default function ReviewsPage() {
           {KANBAN_COLUMNS.map((col) => (
             <div key={col.key} className="min-w-[240px] flex-shrink-0">
               <div className="flex items-center justify-between mb-2 px-1">
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{col.label}</span>
-                <span className="text-xs text-gray-400">{grouped[col.key].length}</span>
+                <span className="text-xs font-semibold text-text-tertiary uppercase tracking-wide">{col.label}</span>
+                <span className="text-xs text-text-quaternary">{grouped[col.key].length}</span>
               </div>
-              <div className="space-y-2 min-h-[120px] bg-cream/30 rounded p-2">
+              <div className="space-y-2 min-h-[120px] bg-bg-inset/30 rounded p-2">
                 {grouped[col.key].length === 0 && (
-                  <p className="text-xs text-gray-300 text-center py-6">No items</p>
+                  <p className="text-xs text-text-quaternary text-center py-6">No items</p>
                 )}
                 {grouped[col.key].map((r) => (
                   <button
@@ -195,19 +195,19 @@ export default function ReviewsPage() {
                     onClick={() => { setSelected(r); setDetailTab("docs"); }}
                     className="card p-3 w-full text-left hover:shadow-md transition-shadow cursor-pointer"
                   >
-                    <p className="text-sm font-medium text-ink truncate">{r.title}</p>
-                    {r.packageName && <p className="text-xs text-gray-500 mt-0.5">{r.packageName}</p>}
-                    {r.contractor && <p className="text-xs text-gray-400">{r.contractor}</p>}
+                    <p className="text-sm font-medium text-text-primary truncate">{r.title}</p>
+                    {r.packageName && <p className="text-xs text-text-tertiary mt-0.5">{r.packageName}</p>}
+                    {r.contractor && <p className="text-xs text-text-quaternary">{r.contractor}</p>}
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="text-[10px] text-gray-400">{new Date(r.submissionDate).toLocaleDateString()}</span>
-                      {r.isOverdue && <span className="text-[10px] text-[#B04A3A] font-semibold">OVERDUE</span>}
+                      <span className="text-[10px] text-text-quaternary">{new Date(r.submissionDate).toLocaleDateString()}</span>
+                      {r.isOverdue && <span className="text-[10px] text-status-reject font-semibold">OVERDUE</span>}
                       {r.deviationCount > 0 && (
-                        <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">{r.deviationCount} dev</span>
+                        <span className="text-[10px] bg-status-warning-bg text-status-warning-fg px-1.5 py-0.5 rounded">{r.deviationCount} dev</span>
                       )}
                     </div>
-                    {r.reviewerName && <p className="text-[10px] text-gray-400 mt-1">Reviewer: {r.reviewerName}</p>}
+                    {r.reviewerName && <p className="text-[10px] text-text-quaternary mt-1">Reviewer: {r.reviewerName}</p>}
                     {r.reviewOutcome && (
-                      <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded mt-1 ${OUTCOME_LABELS[r.reviewOutcome]?.cls || "bg-gray-100"}`}>
+                      <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded mt-1 ${OUTCOME_LABELS[r.reviewOutcome]?.cls || "bg-bg-inset"}`}>
                         {OUTCOME_LABELS[r.reviewOutcome]?.label || r.reviewOutcome}
                       </span>
                     )}
@@ -224,7 +224,7 @@ export default function ReviewsPage() {
                         grouped[col.key].forEach((r) => updateStatus(r.id, KANBAN_COLUMNS[nextIdx].key));
                       }
                     }}
-                    className="text-[10px] text-bronze hover:underline"
+                    className="text-[10px] text-brand-orange hover:underline"
                   >
                     Move all →
                   </button>
@@ -239,26 +239,26 @@ export default function ReviewsPage() {
       <Modal open={showNew} onClose={() => setShowNew(false)} title="New Shop Drawing Submission">
         <div className="space-y-3 text-sm">
           <div>
-            <label className="text-xs text-gray-500">Drawing title *</label>
+            <label className="text-xs text-text-tertiary">Drawing title *</label>
             <input className="input mt-1 w-full" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-500">Package</label>
+              <label className="text-xs text-text-tertiary">Package</label>
               <input className="input mt-1 w-full" value={form.packageName} onChange={(e) => setForm({ ...form, packageName: e.target.value })} />
             </div>
             <div>
-              <label className="text-xs text-gray-500">Contractor</label>
+              <label className="text-xs text-text-tertiary">Contractor</label>
               <input className="input mt-1 w-full" value={form.contractor} onChange={(e) => setForm({ ...form, contractor: e.target.value })} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-500">Submitted by *</label>
+              <label className="text-xs text-text-tertiary">Submitted by *</label>
               <input className="input mt-1 w-full" value={form.submittedBy} onChange={(e) => setForm({ ...form, submittedBy: e.target.value })} />
             </div>
             <div>
-              <label className="text-xs text-gray-500">Submission date *</label>
+              <label className="text-xs text-text-tertiary">Submission date *</label>
               <input type="date" className="input mt-1 w-full" value={form.submissionDate} onChange={(e) => setForm({ ...form, submissionDate: e.target.value })} />
             </div>
           </div>
@@ -276,17 +276,17 @@ export default function ReviewsPage() {
         {selected && (
           <div className="space-y-4 text-sm">
             {/* Meta */}
-            <div className="grid grid-cols-3 gap-2 text-xs text-gray-500">
+            <div className="grid grid-cols-3 gap-2 text-xs text-text-tertiary">
               <div>
-                <span className="block text-[10px] text-gray-400 uppercase">Package</span>
+                <span className="block text-[10px] text-text-quaternary uppercase">Package</span>
                 {selected.packageName || "—"}
               </div>
               <div>
-                <span className="block text-[10px] text-gray-400 uppercase">Contractor</span>
+                <span className="block text-[10px] text-text-quaternary uppercase">Contractor</span>
                 {selected.contractor || "—"}
               </div>
               <div>
-                <span className="block text-[10px] text-gray-400 uppercase">Status</span>
+                <span className="block text-[10px] text-text-quaternary uppercase">Status</span>
                 {KANBAN_COLUMNS.find((c) => c.key === selected.status)?.label || selected.status}
               </div>
             </div>
@@ -298,7 +298,7 @@ export default function ReviewsPage() {
                   <button
                     key={c.key}
                     onClick={() => { updateStatus(selected.id, c.key); setSelected({ ...selected, status: c.key }); }}
-                    className="text-[10px] border border-card-border rounded px-2 py-1 hover:bg-cream/50"
+                    className="text-[10px] border border-border rounded px-2 py-1 hover:bg-bg-inset/50"
                   >
                     → {c.label}
                   </button>
@@ -307,12 +307,12 @@ export default function ReviewsPage() {
             )}
 
             {/* Tabs */}
-            <div className="flex gap-4 border-b border-card-border">
+            <div className="flex gap-4 border-b border-border">
               {(["docs", "deviations", "review"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setDetailTab(t)}
-                  className={`pb-2 text-xs font-medium capitalize ${detailTab === t ? "text-bronze border-b-2 border-bronze" : "text-gray-400"}`}
+                  className={`pb-2 text-xs font-medium capitalize ${detailTab === t ? "text-brand-orange border-b-2 border-brand-orange" : "text-text-quaternary"}`}
                 >
                   {t === "docs" ? "Documents" : t === "deviations" ? `Deviation Log (${selected.deviationCount})` : "Review Record"}
                 </button>
@@ -321,7 +321,7 @@ export default function ReviewsPage() {
 
             {/* Tab content */}
             {detailTab === "docs" && (
-              <div className="text-xs text-gray-400 py-4 text-center">
+              <div className="text-xs text-text-quaternary py-4 text-center">
                 Document attachments will appear here when file uploads are configured.
               </div>
             )}
@@ -329,27 +329,27 @@ export default function ReviewsPage() {
             {detailTab === "deviations" && (
               <div className="space-y-3">
                 {(selected.deviations || []).length === 0 ? (
-                  <p className="text-xs text-gray-400 py-4 text-center">No deviations logged.</p>
+                  <p className="text-xs text-text-quaternary py-4 text-center">No deviations logged.</p>
                 ) : (
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b border-card-border">
-                        <th className="text-left px-2 py-1 text-gray-400">#</th>
-                        <th className="text-left px-2 py-1 text-gray-400">Description</th>
-                        <th className="text-left px-2 py-1 text-gray-400">Severity</th>
-                        <th className="text-left px-2 py-1 text-gray-400">Design</th>
-                        <th className="text-left px-2 py-1 text-gray-400">Technical</th>
-                        <th className="text-left px-2 py-1 text-gray-400">Schedule</th>
-                        <th className="text-left px-2 py-1 text-gray-400">Status</th>
+                      <tr className="border-b border-border">
+                        <th className="text-left px-2 py-1 text-text-quaternary">#</th>
+                        <th className="text-left px-2 py-1 text-text-quaternary">Description</th>
+                        <th className="text-left px-2 py-1 text-text-quaternary">Severity</th>
+                        <th className="text-left px-2 py-1 text-text-quaternary">Design</th>
+                        <th className="text-left px-2 py-1 text-text-quaternary">Technical</th>
+                        <th className="text-left px-2 py-1 text-text-quaternary">Schedule</th>
+                        <th className="text-left px-2 py-1 text-text-quaternary">Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {(selected.deviations || []).map((d, i) => (
-                        <tr key={i} className="border-b border-card-border/40">
+                        <tr key={i} className="border-b border-border/40">
                           <td className="px-2 py-1.5">{d.itemNo}</td>
                           <td className="px-2 py-1.5 max-w-[200px] truncate">{d.description}</td>
                           <td className="px-2 py-1.5">
-                            <span className={`px-1.5 py-0.5 rounded ${SEVERITY_LABELS[d.severity]?.cls || "bg-gray-100"}`}>
+                            <span className={`px-1.5 py-0.5 rounded ${SEVERITY_LABELS[d.severity]?.cls || "bg-bg-inset"}`}>
                               {SEVERITY_LABELS[d.severity]?.label || d.severity}
                             </span>
                           </td>
@@ -364,16 +364,16 @@ export default function ReviewsPage() {
                 )}
 
                 {!showAddDeviation ? (
-                  <button onClick={() => setShowAddDeviation(true)} className="text-xs text-bronze hover:underline">+ Add deviation</button>
+                  <button onClick={() => setShowAddDeviation(true)} className="text-xs text-brand-orange hover:underline">+ Add deviation</button>
                 ) : (
-                  <div className="border border-card-border rounded p-3 space-y-2 bg-cream/30">
+                  <div className="border border-border rounded p-3 space-y-2 bg-bg-inset/30">
                     <div>
-                      <label className="text-[10px] text-gray-400">Description *</label>
+                      <label className="text-[10px] text-text-quaternary">Description *</label>
                       <input className="input mt-0.5 w-full text-xs" value={devForm.description} onChange={(e) => setDevForm({ ...devForm, description: e.target.value })} />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] text-gray-400">Severity</label>
+                        <label className="text-[10px] text-text-quaternary">Severity</label>
                         <select className="input mt-0.5 w-full text-xs" value={devForm.severity} onChange={(e) => setDevForm({ ...devForm, severity: e.target.value })}>
                           <option value="minor">Minor</option>
                           <option value="major">Major</option>
@@ -381,7 +381,7 @@ export default function ReviewsPage() {
                         </select>
                       </div>
                       <div>
-                        <label className="text-[10px] text-gray-400">Status</label>
+                        <label className="text-[10px] text-text-quaternary">Status</label>
                         <select className="input mt-0.5 w-full text-xs" value={devForm.status} onChange={(e) => setDevForm({ ...devForm, status: e.target.value })}>
                           <option value="open">Open</option>
                           <option value="resolved">Resolved</option>
@@ -390,20 +390,20 @@ export default function ReviewsPage() {
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <label className="text-[10px] text-gray-400">Design impact</label>
+                        <label className="text-[10px] text-text-quaternary">Design impact</label>
                         <input className="input mt-0.5 w-full text-xs" value={devForm.designImpact} onChange={(e) => setDevForm({ ...devForm, designImpact: e.target.value })} />
                       </div>
                       <div>
-                        <label className="text-[10px] text-gray-400">Technical impact</label>
+                        <label className="text-[10px] text-text-quaternary">Technical impact</label>
                         <input className="input mt-0.5 w-full text-xs" value={devForm.technicalImpact} onChange={(e) => setDevForm({ ...devForm, technicalImpact: e.target.value })} />
                       </div>
                       <div>
-                        <label className="text-[10px] text-gray-400">Schedule impact</label>
+                        <label className="text-[10px] text-text-quaternary">Schedule impact</label>
                         <input className="input mt-0.5 w-full text-xs" value={devForm.scheduleImpact} onChange={(e) => setDevForm({ ...devForm, scheduleImpact: e.target.value })} />
                       </div>
                     </div>
                     <div className="flex justify-end gap-2">
-                      <button onClick={() => setShowAddDeviation(false)} className="text-xs text-gray-400">Cancel</button>
+                      <button onClick={() => setShowAddDeviation(false)} className="text-xs text-text-quaternary">Cancel</button>
                       <button onClick={() => addDeviation(selected.id)} className="btn-primary text-xs" disabled={!devForm.description.trim()}>Add</button>
                     </div>
                   </div>
@@ -414,19 +414,19 @@ export default function ReviewsPage() {
             {detailTab === "review" && (
               <div className="space-y-3">
                 {selected.reviewOutcome && (
-                  <div className="bg-cream/50 border border-card-border rounded p-3 space-y-1">
-                    <p className="text-xs text-gray-400">Previous review</p>
-                    <span className={`inline-block text-xs px-2 py-0.5 rounded ${OUTCOME_LABELS[selected.reviewOutcome]?.cls || "bg-gray-100"}`}>
+                  <div className="bg-bg-inset/50 border border-border rounded p-3 space-y-1">
+                    <p className="text-xs text-text-quaternary">Previous review</p>
+                    <span className={`inline-block text-xs px-2 py-0.5 rounded ${OUTCOME_LABELS[selected.reviewOutcome]?.cls || "bg-bg-inset"}`}>
                       {OUTCOME_LABELS[selected.reviewOutcome]?.label || selected.reviewOutcome}
                     </span>
-                    {selected.reviewComment && <p className="text-xs text-gray-600 mt-1">{selected.reviewComment}</p>}
-                    {selected.reviewDate && <p className="text-[10px] text-gray-400">{new Date(selected.reviewDate).toLocaleString()}</p>}
+                    {selected.reviewComment && <p className="text-xs text-text-secondary mt-1">{selected.reviewComment}</p>}
+                    {selected.reviewDate && <p className="text-[10px] text-text-quaternary">{new Date(selected.reviewDate).toLocaleString()}</p>}
                   </div>
                 )}
 
                 {selected.status !== "closed" && (
-                  <div className="space-y-2 border border-card-border rounded p-3">
-                    <label className="text-xs font-medium text-gray-500">Submit Review</label>
+                  <div className="space-y-2 border border-border rounded p-3">
+                    <label className="text-xs font-medium text-text-tertiary">Submit Review</label>
                     <select className="input w-full text-xs" value={reviewOutcome} onChange={(e) => setReviewOutcome(e.target.value)}>
                       <option value="">Select outcome…</option>
                       <option value="approved">Approved</option>

@@ -58,10 +58,11 @@ const ACCESS_MATRIX: Record<string, string[]> = {
 
 /**
  * Check if a role has access to a given scope.
+ * Deny by default: unknown scopes are rejected.
  */
 export function hasAccess(role: string, scope: string): boolean {
   const allowed = ACCESS_MATRIX[scope];
-  if (!allowed) return true; // Unknown scope = allow (open by default for undefined scopes)
+  if (!allowed) return false; // Unknown scope = deny (secure by default)
   return allowed.includes(role);
 }
 

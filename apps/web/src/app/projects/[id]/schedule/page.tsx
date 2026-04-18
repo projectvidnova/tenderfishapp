@@ -159,7 +159,7 @@ export default function SchedulePage() {
   if (loading) {
     return (
       <AppShell>
-        <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Loading schedule…</div>
+        <div className="flex items-center justify-center h-64 text-text-quaternary text-sm">Loading schedule…</div>
       </AppShell>
     );
   }
@@ -169,16 +169,16 @@ export default function SchedulePage() {
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-ink">Schedule</h1>
+          <h1 className="text-2xl font-semibold text-text-primary">Schedule</h1>
           <div className="flex items-center gap-3">
             {/* View toggle */}
-            <div className="flex border border-card-border rounded-card overflow-hidden">
+            <div className="flex border border-border rounded-xl overflow-hidden">
               {(["gantt", "milestones", "summary"] as ViewMode[]).map((v) => (
                 <button
                   key={v}
                   onClick={() => setView(v)}
                   className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                    view === v ? "bg-ink text-white" : "bg-white text-gray-500 hover:bg-warm"
+                    view === v ? "bg-ink text-white" : "bg-white text-text-tertiary hover:bg-bg-inset"
                   }`}
                 >
                   {v === "gantt" ? "Gantt" : v === "milestones" ? "Milestone List" : "Phase Summary"}
@@ -191,7 +191,7 @@ export default function SchedulePage() {
 
         {/* Derived dates banner */}
         {hasDerivedDates && (
-          <div className="bg-amber-50 border border-amber-200 rounded-card px-4 py-3 text-sm text-amber-700">
+          <div className="bg-status-warning-light border border-status-warning-border rounded-xl px-4 py-3 text-sm text-status-warning-fg">
             Some dates are estimated by back-scheduling from target completion. Items marked DERIVED should be confirmed when possible.
           </div>
         )}
@@ -200,21 +200,21 @@ export default function SchedulePage() {
         {view === "gantt" && (
           <div className="card overflow-x-auto">
             {phases.length === 0 && milestones.length === 0 ? (
-              <div className="p-8 text-center text-gray-400 text-sm">
+              <div className="p-8 text-center text-text-quaternary text-sm">
                 No schedule data yet. Phases and milestones will appear once project is set up.
               </div>
             ) : (
               <div className="min-w-[800px]">
                 {/* Month headers */}
-                <div className="flex border-b border-card-border">
-                  <div className="w-48 flex-shrink-0 px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide border-r border-card-border">
+                <div className="flex border-b border-border">
+                  <div className="w-48 flex-shrink-0 px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide border-r border-border">
                     Item
                   </div>
                   <div className="flex-1 flex relative">
                     {months.map((m, i) => (
                       <div
                         key={i}
-                        className="text-xs text-gray-400 font-mono px-2 py-2 border-r border-card-border/50 text-center"
+                        className="text-xs text-text-quaternary font-mono px-2 py-2 border-r border-border/50 text-center"
                         style={{ width: `${(m.days / totalDays) * 100}%` }}
                       >
                         {m.label}
@@ -231,10 +231,10 @@ export default function SchedulePage() {
                   const isDerived = phase.dateDataState !== "CONFIRMED";
 
                   return (
-                    <div key={phase.id} className="flex border-b border-card-border/50 hover:bg-cream/20 group">
-                      <div className="w-48 flex-shrink-0 px-4 py-3 flex items-center gap-2 border-r border-card-border">
-                        <span className="font-mono text-xs text-gray-400">LPH {phase.lph}</span>
-                        <span className="text-sm text-ink truncate">{LPH_NAMES[phase.lph]}</span>
+                    <div key={phase.id} className="flex border-b border-border/50 hover:bg-bg-inset/20 group">
+                      <div className="w-48 flex-shrink-0 px-4 py-3 flex items-center gap-2 border-r border-border">
+                        <span className="font-mono text-xs text-text-quaternary">LPH {phase.lph}</span>
+                        <span className="text-sm text-text-primary truncate">{LPH_NAMES[phase.lph]}</span>
                       </div>
                       <div className="flex-1 relative py-2 px-1">
                         {phase.startDate && (
@@ -253,7 +253,7 @@ export default function SchedulePage() {
                         )}
                         {!phase.startDate && (
                           <div className="flex items-center h-full px-2">
-                            <span className="text-xs text-gray-300 italic">No dates</span>
+                            <span className="text-xs text-text-quaternary italic">No dates</span>
                           </div>
                         )}
                       </div>
@@ -267,9 +267,9 @@ export default function SchedulePage() {
                   const isConfirmed = m.dataState === "CONFIRMED";
 
                   return (
-                    <div key={m.id} className="flex border-b border-card-border/50 hover:bg-cream/20">
-                      <div className="w-48 flex-shrink-0 px-4 py-3 flex items-center gap-2 border-r border-card-border">
-                        <span className="text-sm text-ink truncate">{m.name}</span>
+                    <div key={m.id} className="flex border-b border-border/50 hover:bg-bg-inset/20">
+                      <div className="w-48 flex-shrink-0 px-4 py-3 flex items-center gap-2 border-r border-border">
+                        <span className="text-sm text-text-primary truncate">{m.name}</span>
                       </div>
                       <div className="flex-1 relative py-2 px-1">
                         <div
@@ -287,7 +287,7 @@ export default function SchedulePage() {
 
                 {/* Today line (overlay) */}
                 <div
-                  className="absolute top-0 bottom-0 w-px bg-bronze z-10 pointer-events-none"
+                  className="absolute top-0 bottom-0 w-px bg-brand-orange z-10 pointer-events-none"
                   style={{ left: `calc(192px + ${(todayOffset() / totalDays) * (100)}% * (100% - 192px) / 100%)` }}
                 />
               </div>
@@ -300,39 +300,39 @@ export default function SchedulePage() {
           <div className="card overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-card-border bg-cream/30">
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-28">Date</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Milestone</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-24">Phase</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-24">Type</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-20">Data</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-20">Gate</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-24">Status</th>
+                <tr className="border-b border-border bg-bg-inset/30">
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-28">Date</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide">Milestone</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-24">Phase</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-24">Type</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-20">Data</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-20">Gate</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-24">Status</th>
                   <th className="w-10" />
                 </tr>
               </thead>
               <tbody>
                 {milestones.length === 0 ? (
-                  <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">No milestones yet.</td></tr>
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-text-quaternary">No milestones yet.</td></tr>
                 ) : milestones.map((m) => (
-                  <tr key={m.id} className="border-b border-card-border last:border-0 hover:bg-cream/20">
-                    <td className="px-4 py-3 font-mono text-xs text-gray-600">{m.date}</td>
-                    <td className="px-4 py-3 font-medium text-ink">{m.name}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{m.phaseLph ? `LPH ${m.phaseLph}` : "—"}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{MILESTONE_TYPE_LABELS[m.type] || m.type}</td>
+                  <tr key={m.id} className="border-b border-border last:border-0 hover:bg-bg-inset/20">
+                    <td className="px-4 py-3 font-mono text-xs text-text-secondary">{m.date}</td>
+                    <td className="px-4 py-3 font-medium text-text-primary">{m.name}</td>
+                    <td className="px-4 py-3 text-xs text-text-tertiary">{m.phaseLph ? `LPH ${m.phaseLph}` : "—"}</td>
+                    <td className="px-4 py-3 text-xs text-text-tertiary">{MILESTONE_TYPE_LABELS[m.type] || m.type}</td>
                     <td className="px-4 py-3"><DataStateChip state={m.dataState} /></td>
-                    <td className="px-4 py-3 text-xs font-mono text-gray-500">{m.relatedGate ? `Gate ${m.relatedGate}` : "—"}</td>
+                    <td className="px-4 py-3 text-xs font-mono text-text-tertiary">{m.relatedGate ? `Gate ${m.relatedGate}` : "—"}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-sm border ${
-                        m.status === "complete" ? "text-green-700 bg-green-50 border-green-200" :
-                        m.status === "in_progress" ? "text-bronze bg-amber-50 border-amber-200" :
-                        "text-gray-400 bg-gray-50 border-gray-200"
+                        m.status === "complete" ? "text-status-success-fg bg-status-success-light border-green-200" :
+                        m.status === "in_progress" ? "text-brand-orange bg-status-warning-light border-status-warning-border" :
+                        "text-text-quaternary bg-bg-bg-page border-border"
                       }`}>
                         {m.status === "not_started" ? "Pending" : m.status === "in_progress" ? "In Progress" : "Complete"}
                       </span>
                     </td>
                     <td className="px-2 py-3">
-                      <button onClick={() => deleteMilestone(m.id)} className="text-gray-300 hover:text-red-500 text-xs">×</button>
+                      <button onClick={() => deleteMilestone(m.id)} className="text-text-quaternary hover:text-status-danger text-xs">×</button>
                     </td>
                   </tr>
                 ))}
@@ -348,25 +348,25 @@ export default function SchedulePage() {
               <div key={p.id} className="card p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="font-mono text-sm text-gray-400">LPH {p.lph}</span>
-                    <span className="text-sm font-medium text-ink">{LPH_NAMES[p.lph]}</span>
+                    <span className="font-mono text-sm text-text-quaternary">LPH {p.lph}</span>
+                    <span className="text-sm font-medium text-text-primary">{LPH_NAMES[p.lph]}</span>
                     <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-sm border ${
-                      p.status === "complete" ? "text-green-700 bg-green-50 border-green-200" :
-                      p.status === "active" ? "text-bronze bg-amber-50 border-amber-200" :
-                      "text-gray-400 bg-gray-50 border-gray-200"
+                      p.status === "complete" ? "text-status-success-fg bg-status-success-light border-green-200" :
+                      p.status === "active" ? "text-brand-orange bg-status-warning-light border-status-warning-border" :
+                      "text-text-quaternary bg-bg-bg-page border-border"
                     }`}>
                       {p.status === "not_started" ? "Not Started" : p.status === "active" ? "Active" : "Complete"}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-gray-500 font-mono">
+                  <div className="flex items-center gap-3 text-xs text-text-tertiary font-mono">
                     {p.startDate && <span>{p.startDate}</span>}
                     {p.startDate && p.endDate && <span>→</span>}
                     {p.endDate && <span>{p.endDate}</span>}
                     {p.startDate && p.dateDataState !== "CONFIRMED" && <DataStateChip state={p.dateDataState} />}
-                    {!p.startDate && <span className="text-gray-300">No dates set</span>}
+                    {!p.startDate && <span className="text-text-quaternary">No dates set</span>}
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">{p.objective}</p>
+                <p className="text-xs text-text-tertiary mt-2">{p.objective}</p>
               </div>
             ))}
           </div>

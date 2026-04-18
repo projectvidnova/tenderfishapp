@@ -229,8 +229,8 @@ export default function NewProjectPage() {
       <div className="max-w-3xl mx-auto space-y-8">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-semibold text-ink">New project</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-semibold text-text-primary">New project</h1>
+          <p className="text-sm text-text-tertiary mt-1">
             Start with whatever you have. Tenderfish will structure it.
           </p>
         </div>
@@ -242,10 +242,10 @@ export default function NewProjectPage() {
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${
                   s === step
-                    ? "bg-bronze text-white"
+                    ? "bg-brand-orange text-white"
                     : s < step
                     ? "bg-gate-complete text-white"
-                    : "bg-warm text-gray-400"
+                    : "bg-bg-inset text-text-quaternary"
                 }`}
               >
                 {s}
@@ -253,7 +253,7 @@ export default function NewProjectPage() {
               {s < 4 && (
                 <div
                   className={`w-8 h-px ${
-                    s < step ? "bg-gate-complete" : "bg-warm"
+                    s < step ? "bg-gate-complete" : "bg-bg-inset"
                   }`}
                 />
               )}
@@ -272,20 +272,20 @@ export default function NewProjectPage() {
               }}
               onDragLeave={() => setIsDragOver(false)}
               onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-card p-12 text-center transition-colors ${
+              className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors ${
                 isDragOver
-                  ? "border-bronze bg-bronze/5"
-                  : "border-card-border bg-white"
+                  ? "border-brand-orange bg-brand-orange/5"
+                  : "border-border bg-white"
               }`}
             >
               <Upload
                 size={40}
-                className="mx-auto mb-3 text-gray-300"
+                className="mx-auto mb-3 text-text-quaternary"
               />
-              <p className="text-sm font-medium text-gray-600">
+              <p className="text-sm font-medium text-text-secondary">
                 Drop files here, or click to browse
               </p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-text-quaternary mt-1">
                 PDF · DOCX · MSG · EML · TXT · XLSX · JPG · PNG
               </p>
               <input
@@ -307,21 +307,21 @@ export default function NewProjectPage() {
                     className="card flex items-center justify-between px-4 py-3"
                   >
                     <div className="flex items-center gap-3">
-                      <FileText size={18} className="text-gray-400" />
+                      <FileText size={18} className="text-text-quaternary" />
                       <div>
-                        <p className="text-sm font-medium text-ink">
+                        <p className="text-sm font-medium text-text-primary">
                           {file.name}
                         </p>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs text-text-quaternary">
                           {formatFileSize(file.size)}
                         </p>
                       </div>
                     </div>
                     <button
                       onClick={() => removeFile(i)}
-                      className="p-1 hover:bg-warm rounded-sm transition-colors"
+                      className="p-1 hover:bg-bg-inset rounded-sm transition-colors"
                     >
-                      <X size={16} className="text-gray-400" />
+                      <X size={16} className="text-text-quaternary" />
                     </button>
                   </div>
                 ))}
@@ -330,7 +330,7 @@ export default function NewProjectPage() {
 
             {/* Text alternative */}
             <div>
-              <p className="text-sm text-gray-500 mb-2">
+              <p className="text-sm text-text-tertiary mb-2">
                 Or paste a project briefing here
               </p>
               <textarea
@@ -361,11 +361,11 @@ export default function NewProjectPage() {
             <div>
               <h2 className="text-lg font-medium">
                 Add context{" "}
-                <span className="text-gray-400 font-normal">
+                <span className="text-text-quaternary font-normal">
                   (optional but helpful)
                 </span>
               </h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-text-tertiary mt-1">
                 The more context you provide, the more accurate the initial
                 structure.
               </p>
@@ -494,7 +494,7 @@ export default function NewProjectPage() {
                 Analysing your project material...
               </h2>
               {jobError && (
-                <p className="text-sm text-red-600 mt-2">{jobError}</p>
+                <p className="text-sm text-status-danger mt-2">{jobError}</p>
               )}
             </div>
 
@@ -515,9 +515,9 @@ export default function NewProjectPage() {
                     {s.status === "complete" ? (
                       <Check size={16} className="text-gate-complete" />
                     ) : s.status === "processing" ? (
-                      <Loader2 size={16} className="text-bronze animate-spin" />
+                      <Loader2 size={16} className="text-brand-orange animate-spin" />
                     ) : (
-                      <span className="text-gray-300">○</span>
+                      <span className="text-text-quaternary">○</span>
                     )}
                   </span>
                   <span
@@ -525,8 +525,8 @@ export default function NewProjectPage() {
                       s.status === "complete"
                         ? "text-gate-complete"
                         : s.status === "processing"
-                        ? "text-ink font-medium"
-                        : "text-gray-400"
+                        ? "text-text-primary font-medium"
+                        : "text-text-quaternary"
                     }
                   >
                     {s.label}
@@ -551,7 +551,7 @@ export default function NewProjectPage() {
           <div className="space-y-6">
             <div>
               <h2 className="text-lg font-medium">Review what we found</h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-text-tertiary mt-1">
                 Confirm, correct, or add to the extracted information before
                 creating the project.
               </p>
@@ -560,18 +560,18 @@ export default function NewProjectPage() {
             <div className="grid grid-cols-[280px_1fr] gap-6">
               {/* Left: source files */}
               <div className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                <h3 className="text-sm font-medium text-text-tertiary uppercase tracking-wide">
                   Source Files
                 </h3>
                 {files.length > 0 ? (
                   files.map((f, i) => (
                     <div key={i} className="card p-3 flex items-center gap-2">
-                      <FileText size={16} className="text-gray-400" />
+                      <FileText size={16} className="text-text-quaternary" />
                       <span className="text-sm truncate">{f.name}</span>
                     </div>
                   ))
                 ) : (
-                  <div className="card p-3 text-sm text-gray-400">
+                  <div className="card p-3 text-sm text-text-quaternary">
                     Briefing text provided
                   </div>
                 )}
@@ -581,27 +581,27 @@ export default function NewProjectPage() {
               <div className="card overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-card-border bg-cream/50">
-                      <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                    <tr className="border-b border-border bg-bg-inset/50">
+                      <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wide">
                         Field
                       </th>
-                      <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                      <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wide">
                         Value
                       </th>
-                      <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                      <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wide">
                         State
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {facts.map((fact) => (
-                      <tr key={fact.id} className="border-b border-card-border last:border-0">
-                        <td className="px-4 py-3 text-gray-600">
+                      <tr key={fact.id} className="border-b border-border last:border-0">
+                        <td className="px-4 py-3 text-text-secondary">
                           {fact.fieldName.replace(/_/g, " ")}
                         </td>
                         <td className="px-4 py-3">
                           <input
-                            className="w-full bg-transparent text-ink font-medium border-b border-transparent hover:border-card-border focus:border-bronze focus:outline-none px-0 py-1"
+                            className="w-full bg-transparent text-text-primary font-medium border-b border-transparent hover:border-border focus:border-brand-orange focus:outline-none px-0 py-1"
                             value={editedFacts[fact.id] !== undefined ? editedFacts[fact.id] : (fact.value || "")}
                             onChange={(e) =>
                               setEditedFacts({ ...editedFacts, [fact.id]: e.target.value })
@@ -618,7 +618,7 @@ export default function NewProjectPage() {
                     ))}
                     {facts.length === 0 && (
                       <tr>
-                        <td colSpan={3} className="px-4 py-8 text-center text-gray-400">
+                        <td colSpan={3} className="px-4 py-8 text-center text-text-quaternary">
                           No facts extracted yet
                         </td>
                       </tr>
@@ -631,7 +631,7 @@ export default function NewProjectPage() {
             {/* Gate checks */}
             {gateChecks.length > 0 && (
               <div className="space-y-2">
-                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                <h3 className="text-sm font-medium text-text-tertiary uppercase tracking-wide">
                   Gate Eligibility
                 </h3>
                 <div className="flex gap-3 flex-wrap">
@@ -642,13 +642,13 @@ export default function NewProjectPage() {
                     >
                       <div
                         className={`w-2 h-2 rounded-full ${
-                          gc.pass ? "bg-gate-complete" : "bg-gray-300"
+                          gc.pass ? "bg-gate-complete" : "bg-border"
                         }`}
                       />
                       <span className="text-sm font-medium">Gate {gc.gate}:</span>
                       <span
                         className={`text-sm font-medium ${
-                          gc.pass ? "text-gate-complete" : "text-gray-400"
+                          gc.pass ? "text-gate-complete" : "text-text-quaternary"
                         }`}
                       >
                         {gc.pass ? "PASS" : "LOCKED"}

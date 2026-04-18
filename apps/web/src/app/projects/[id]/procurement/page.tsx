@@ -45,12 +45,12 @@ const MODEL_LABELS: Record<string, string> = {
 };
 
 const BIDDER_STATUS: Record<string, { label: string; cls: string }> = {
-  invited: { label: "Invited", cls: "bg-blue-100 text-blue-700" },
-  pending: { label: "Pending", cls: "bg-gray-100 text-gray-500" },
-  returned: { label: "Returned", cls: "bg-green-100 text-[#3F7A5A]" },
-  late: { label: "Late", cls: "bg-red-100 text-[#B04A3A]" },
-  withdrawn: { label: "Withdrawn", cls: "bg-gray-200 text-gray-500" },
-  awarded: { label: "Awarded", cls: "bg-amber-100 text-bronze" },
+  invited: { label: "Invited", cls: "bg-status-info-bg text-status-info-fg" },
+  pending: { label: "Pending", cls: "bg-bg-inset text-text-tertiary" },
+  returned: { label: "Returned", cls: "bg-status-success-bg text-status-approve" },
+  late: { label: "Late", cls: "bg-status-danger-bg text-status-reject" },
+  withdrawn: { label: "Withdrawn", cls: "bg-bg-inset text-text-tertiary" },
+  awarded: { label: "Awarded", cls: "bg-status-warning-bg text-brand-orange" },
 };
 
 export default function ProcurementPage() {
@@ -143,7 +143,7 @@ export default function ProcurementPage() {
   if (loading) {
     return (
       <AppShell>
-        <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Loading procurement…</div>
+        <div className="flex items-center justify-center h-64 text-text-quaternary text-sm">Loading procurement…</div>
       </AppShell>
     );
   }
@@ -152,13 +152,13 @@ export default function ProcurementPage() {
     <AppShell>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-ink">Procurement</h1>
+          <h1 className="text-2xl font-semibold text-text-primary">Procurement</h1>
           <button className="btn-primary text-sm" onClick={() => setShowAddPkg(true)}>New tender package</button>
         </div>
 
         {/* Package list */}
         {packages.length === 0 ? (
-          <div className="card px-4 py-8 text-center text-gray-400 text-sm">
+          <div className="card px-4 py-8 text-center text-text-quaternary text-sm">
             No tender packages created yet.
           </div>
         ) : (
@@ -170,26 +170,26 @@ export default function ProcurementPage() {
                 <div key={pkg.id} className="card overflow-hidden">
                   {/* Header row */}
                   <button
-                    className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-cream/20 transition-colors"
+                    className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-bg-inset/20 transition-colors"
                     onClick={() => toggleExpand(pkg.id)}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <span className="font-semibold text-ink truncate">{pkg.name}</span>
+                      <span className="font-semibold text-text-primary truncate">{pkg.name}</span>
                       <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-sm border ${
-                        pkg.procurementModel === "general_contractor" ? "bg-blue-50 text-blue-700 border-blue-200" :
-                        pkg.procurementModel === "single_trades" ? "bg-purple-50 text-purple-700 border-purple-200" :
-                        "bg-gray-50 text-gray-500 border-gray-200"
+                        pkg.procurementModel === "general_contractor" ? "bg-status-info-light text-status-info-fg border-blue-200" :
+                        pkg.procurementModel === "single_trades" ? "bg-status-purple-bg text-status-purple-fg border-status-purple-border" :
+                        "bg-bg-bg-page text-text-tertiary border-border"
                       }`}>
                         {MODEL_LABELS[pkg.procurementModel] || pkg.procurementModel}
                       </span>
                     </div>
                     <div className="flex items-center gap-4 text-xs shrink-0">
-                      {pkg.leadName && <span className="text-gray-500">{pkg.leadName}</span>}
-                      <span className="text-gray-400">{pkg.bidderCount} bids</span>
-                      <span className={`font-medium ${pkg.tenderReady ? "text-[#3F7A5A]" : "text-amber-600"}`}>
+                      {pkg.leadName && <span className="text-text-tertiary">{pkg.leadName}</span>}
+                      <span className="text-text-quaternary">{pkg.bidderCount} bids</span>
+                      <span className={`font-medium ${pkg.tenderReady ? "text-status-approve" : "text-status-warning-fg"}`}>
                         {pkg.tenderReady ? "Tender Ready" : "Not Ready"}
                       </span>
-                      <svg className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className={`w-4 h-4 text-text-quaternary transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </div>
@@ -197,15 +197,15 @@ export default function ProcurementPage() {
 
                   {/* Expanded detail */}
                   {isExpanded && (
-                    <div className="border-t border-card-border">
+                    <div className="border-t border-border">
                       {/* Section tabs */}
-                      <div className="flex gap-1 px-4 border-b border-card-border bg-cream/20">
+                      <div className="flex gap-1 px-4 border-b border-border bg-bg-inset/20">
                         {["summary", "blockers", "bidders", "comparison"].map((t) => (
                           <button
                             key={t}
                             onClick={() => setActiveTab((prev) => ({ ...prev, [pkg.id]: t }))}
                             className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors capitalize ${
-                              tab === t ? "border-bronze text-ink" : "border-transparent text-gray-400 hover:text-gray-600"
+                              tab === t ? "border-brand-orange text-text-primary" : "border-transparent text-text-quaternary hover:text-text-secondary"
                             }`}
                           >
                             {t}
@@ -219,32 +219,32 @@ export default function ProcurementPage() {
                           <div className="space-y-3">
                             <div className="grid grid-cols-3 gap-3 text-sm">
                               <div>
-                                <span className="text-gray-500 text-xs">Model</span>
+                                <span className="text-text-tertiary text-xs">Model</span>
                                 <p>{MODEL_LABELS[pkg.procurementModel]}</p>
                               </div>
                               <div>
-                                <span className="text-gray-500 text-xs">Lead</span>
+                                <span className="text-text-tertiary text-xs">Lead</span>
                                 <p>{pkg.leadName || "Unassigned"}</p>
                               </div>
                               <div>
-                                <span className="text-gray-500 text-xs">Target Tender Date</span>
+                                <span className="text-text-tertiary text-xs">Target Tender Date</span>
                                 <p className="font-mono">{pkg.targetTenderDate || "—"}</p>
                               </div>
                             </div>
                             {pkg.description && (
                               <div className="text-sm">
-                                <span className="text-gray-500 text-xs">Description</span>
+                                <span className="text-text-tertiary text-xs">Description</span>
                                 <p>{pkg.description}</p>
                               </div>
                             )}
                             {pkg.scope && (
                               <div className="text-sm">
-                                <span className="text-gray-500 text-xs">Scope</span>
+                                <span className="text-text-tertiary text-xs">Scope</span>
                                 <p>{pkg.scope}</p>
                               </div>
                             )}
-                            <div className="flex items-center gap-3 pt-2 border-t border-card-border">
-                              <button className="text-xs text-red-500 hover:text-red-700" onClick={() => deletePackage(pkg.id)}>Remove package</button>
+                            <div className="flex items-center gap-3 pt-2 border-t border-border">
+                              <button className="text-xs text-status-danger hover:text-status-danger-fg" onClick={() => deletePackage(pkg.id)}>Remove package</button>
                             </div>
                           </div>
                         )}
@@ -253,23 +253,23 @@ export default function ProcurementPage() {
                         {tab === "blockers" && (
                           <div>
                             {pkg.blockers.length === 0 ? (
-                              <p className="text-sm text-gray-400">No blockers recorded.</p>
+                              <p className="text-sm text-text-quaternary">No blockers recorded.</p>
                             ) : (
                               <table className="w-full text-sm">
                                 <thead>
-                                  <tr className="border-b border-card-border">
-                                    <th className="text-left py-2 text-xs font-medium text-gray-500 uppercase">Blocker</th>
-                                    <th className="text-left py-2 text-xs font-medium text-gray-500 uppercase w-24">Gate</th>
-                                    <th className="text-left py-2 text-xs font-medium text-gray-500 uppercase w-24">Status</th>
+                                  <tr className="border-b border-border">
+                                    <th className="text-left py-2 text-xs font-medium text-text-tertiary uppercase">Blocker</th>
+                                    <th className="text-left py-2 text-xs font-medium text-text-tertiary uppercase w-24">Gate</th>
+                                    <th className="text-left py-2 text-xs font-medium text-text-tertiary uppercase w-24">Status</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {pkg.blockers.map((b, i) => (
-                                    <tr key={i} className="border-b border-card-border last:border-0">
+                                    <tr key={i} className="border-b border-border last:border-0">
                                       <td className="py-2">{b.description}</td>
-                                      <td className="py-2 text-xs text-gray-400">{b.gateRef || "—"}</td>
+                                      <td className="py-2 text-xs text-text-quaternary">{b.gateRef || "—"}</td>
                                       <td className="py-2">
-                                        <span className={`text-xs font-medium ${b.resolved ? "text-[#3F7A5A]" : "text-[#B04A3A]"}`}>
+                                        <span className={`text-xs font-medium ${b.resolved ? "text-status-approve" : "text-status-reject"}`}>
                                           {b.resolved ? "Resolved" : "Active"}
                                         </span>
                                       </td>
@@ -288,26 +288,26 @@ export default function ProcurementPage() {
                               <button className="btn-secondary text-xs" onClick={() => setShowAddBidder(pkg.id)}>+ Add bidder</button>
                             </div>
                             {bidders.length === 0 ? (
-                              <p className="text-sm text-gray-400 text-center py-4">No bidders invited yet.</p>
+                              <p className="text-sm text-text-quaternary text-center py-4">No bidders invited yet.</p>
                             ) : (
                               <table className="w-full text-sm">
                                 <thead>
-                                  <tr className="border-b border-card-border">
-                                    <th className="text-left py-2 text-xs font-medium text-gray-500 uppercase">Company</th>
-                                    <th className="text-left py-2 text-xs font-medium text-gray-500 uppercase w-28">Invited</th>
-                                    <th className="text-left py-2 text-xs font-medium text-gray-500 uppercase w-28">Return Due</th>
-                                    <th className="text-left py-2 text-xs font-medium text-gray-500 uppercase w-24">Status</th>
-                                    <th className="text-left py-2 text-xs font-medium text-gray-500 uppercase w-32">Action</th>
+                                  <tr className="border-b border-border">
+                                    <th className="text-left py-2 text-xs font-medium text-text-tertiary uppercase">Company</th>
+                                    <th className="text-left py-2 text-xs font-medium text-text-tertiary uppercase w-28">Invited</th>
+                                    <th className="text-left py-2 text-xs font-medium text-text-tertiary uppercase w-28">Return Due</th>
+                                    <th className="text-left py-2 text-xs font-medium text-text-tertiary uppercase w-24">Status</th>
+                                    <th className="text-left py-2 text-xs font-medium text-text-tertiary uppercase w-32">Action</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {bidders.map((b) => {
                                     const st = BIDDER_STATUS[b.status] || BIDDER_STATUS.pending;
                                     return (
-                                      <tr key={b.id} className="border-b border-card-border last:border-0">
+                                      <tr key={b.id} className="border-b border-border last:border-0">
                                         <td className="py-2 font-medium">{b.company}</td>
-                                        <td className="py-2 text-xs text-gray-400 font-mono">{new Date(b.invitedAt).toLocaleDateString()}</td>
-                                        <td className="py-2 text-xs text-gray-400 font-mono">{b.returnDue || "—"}</td>
+                                        <td className="py-2 text-xs text-text-quaternary font-mono">{new Date(b.invitedAt).toLocaleDateString()}</td>
+                                        <td className="py-2 text-xs text-text-quaternary font-mono">{b.returnDue || "—"}</td>
                                         <td className="py-2">
                                           <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-sm ${st.cls}`}>
                                             {st.label}
@@ -316,13 +316,13 @@ export default function ProcurementPage() {
                                         <td className="py-2">
                                           <div className="flex gap-2">
                                             {b.status === "invited" && (
-                                              <button className="text-xs text-bronze hover:text-bronze-dark" onClick={() => updateBidderStatus(pkg.id, b.id, "returned")}>Mark Returned</button>
+                                              <button className="text-xs text-brand-orange hover:text-brand-orange-dark" onClick={() => updateBidderStatus(pkg.id, b.id, "returned")}>Mark Returned</button>
                                             )}
                                             {b.status === "returned" && (
-                                              <button className="text-xs text-[#3F7A5A] hover:opacity-80 font-medium" onClick={() => awardBidder(pkg.id, b.id)}>Award</button>
+                                              <button className="text-xs text-status-approve hover:opacity-80 font-medium" onClick={() => awardBidder(pkg.id, b.id)}>Award</button>
                                             )}
                                             {(b.status === "invited" || b.status === "pending") && (
-                                              <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => updateBidderStatus(pkg.id, b.id, "withdrawn")}>Withdraw</button>
+                                              <button className="text-xs text-text-quaternary hover:text-text-secondary" onClick={() => updateBidderStatus(pkg.id, b.id, "withdrawn")}>Withdraw</button>
                                             )}
                                           </div>
                                         </td>
@@ -339,25 +339,25 @@ export default function ProcurementPage() {
                         {tab === "comparison" && (
                           <div>
                             {bidders.filter((b) => b.status === "returned" || b.status === "awarded").length === 0 ? (
-                              <p className="text-sm text-gray-400 text-center py-4">No returned bids to compare.</p>
+                              <p className="text-sm text-text-quaternary text-center py-4">No returned bids to compare.</p>
                             ) : (
                               <table className="w-full text-sm">
                                 <thead>
-                                  <tr className="border-b border-card-border">
-                                    <th className="text-left py-2 text-xs font-medium text-gray-500 uppercase">Bidder</th>
-                                    <th className="text-left py-2 text-xs font-medium text-gray-500 uppercase w-28">Offer (€)</th>
-                                    <th className="text-left py-2 text-xs font-medium text-gray-500 uppercase">Notes</th>
-                                    <th className="text-left py-2 text-xs font-medium text-gray-500 uppercase w-24">Status</th>
+                                  <tr className="border-b border-border">
+                                    <th className="text-left py-2 text-xs font-medium text-text-tertiary uppercase">Bidder</th>
+                                    <th className="text-left py-2 text-xs font-medium text-text-tertiary uppercase w-28">Offer (€)</th>
+                                    <th className="text-left py-2 text-xs font-medium text-text-tertiary uppercase">Notes</th>
+                                    <th className="text-left py-2 text-xs font-medium text-text-tertiary uppercase w-24">Status</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {bidders
                                     .filter((b) => b.status === "returned" || b.status === "awarded")
                                     .map((b) => (
-                                      <tr key={b.id} className={`border-b border-card-border last:border-0 ${b.status === "awarded" ? "bg-amber-50" : ""}`}>
+                                      <tr key={b.id} className={`border-b border-border last:border-0 ${b.status === "awarded" ? "bg-status-warning-light" : ""}`}>
                                         <td className="py-2 font-medium">{b.company}</td>
                                         <td className="py-2 font-mono">{b.offerAmount != null ? (b.offerAmount / 100).toLocaleString("de-DE", { style: "currency", currency: "EUR" }) : "—"}</td>
-                                        <td className="py-2 text-xs text-gray-500">{b.offerNotes || "—"}</td>
+                                        <td className="py-2 text-xs text-text-tertiary">{b.offerNotes || "—"}</td>
                                         <td className="py-2">
                                           <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-sm ${(BIDDER_STATUS[b.status] || BIDDER_STATUS.pending).cls}`}>
                                             {(BIDDER_STATUS[b.status] || BIDDER_STATUS.pending).label}

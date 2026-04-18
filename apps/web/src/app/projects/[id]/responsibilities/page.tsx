@@ -31,11 +31,11 @@ const RACI_VALUES = ["R", "A", "C", "I", "—"] as const;
 type RaciValue = typeof RACI_VALUES[number];
 
 const RACI_COLORS: Record<RaciValue, string> = {
-  R: "bg-green-100 text-green-700 font-semibold",
-  A: "bg-blue-100 text-blue-700 font-semibold",
-  C: "bg-amber-100 text-amber-700",
-  I: "bg-gray-100 text-gray-500",
-  "—": "text-gray-300",
+  R: "bg-status-success-bg text-status-success-fg font-semibold",
+  A: "bg-status-info-bg text-status-info-fg font-semibold",
+  C: "bg-status-warning-bg text-status-warning-fg",
+  I: "bg-bg-inset text-text-tertiary",
+  "—": "text-text-quaternary",
 };
 
 function getRaciForRole(row: RaciRow, role: string): RaciValue {
@@ -128,7 +128,7 @@ export default function ResponsibilitiesPage() {
   if (loading) {
     return (
       <AppShell>
-        <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Loading responsibilities…</div>
+        <div className="flex items-center justify-center h-64 text-text-quaternary text-sm">Loading responsibilities…</div>
       </AppShell>
     );
   }
@@ -137,13 +137,13 @@ export default function ResponsibilitiesPage() {
     <AppShell>
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">Responsibility Matrix</h1>
-          <p className="text-sm text-gray-500 mt-1">Auto-generated from project structure. Update assignments as the project develops.</p>
+          <h1 className="text-2xl font-semibold text-text-primary">Responsibility Matrix</h1>
+          <p className="text-sm text-text-tertiary mt-1">Auto-generated from project structure. Update assignments as the project develops.</p>
         </div>
 
         {/* Unassigned warning */}
         {unassignedCount > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-card px-4 py-3 text-sm text-red-700">
+          <div className="bg-status-danger-light border border-status-danger-border rounded-xl px-4 py-3 text-sm text-status-danger-fg">
             {unassignedCount} task{unassignedCount !== 1 ? "s have" : " has"} no responsible owner assigned.
           </div>
         )}
@@ -161,7 +161,7 @@ export default function ResponsibilitiesPage() {
                 <option key={n} value={n}>LPH {n}</option>
               ))}
             </select>
-            <label className="flex items-center gap-2 text-xs text-gray-500">
+            <label className="flex items-center gap-2 text-xs text-text-tertiary">
               <input
                 type="checkbox"
                 checked={showUnassigned}
@@ -178,27 +178,27 @@ export default function ResponsibilitiesPage() {
         <div className="card overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-card-border">
-                <th className="text-left px-3 py-2 font-medium text-gray-500 uppercase tracking-wide sticky left-0 bg-white z-10 min-w-[200px]">Task</th>
-                <th className="px-2 py-2 font-medium text-gray-500 uppercase tracking-wide w-12">LPH</th>
+              <tr className="border-b border-border">
+                <th className="text-left px-3 py-2 font-medium text-text-tertiary uppercase tracking-wide sticky left-0 bg-white z-10 min-w-[200px]">Task</th>
+                <th className="px-2 py-2 font-medium text-text-tertiary uppercase tracking-wide w-12">LPH</th>
                 {ROLE_GROUPS.map((group) => (
                   <th
                     key={group.key}
                     colSpan={group.roles.length}
-                    className="text-center px-1 py-1 font-medium text-gray-500 uppercase tracking-wider border-l border-card-border bg-cream/30"
+                    className="text-center px-1 py-1 font-medium text-text-tertiary uppercase tracking-wider border-l border-border bg-bg-inset/30"
                   >
                     {group.label}
                   </th>
                 ))}
               </tr>
-              <tr className="border-b border-card-border bg-cream/20">
-                <th className="sticky left-0 bg-cream/20 z-10" />
+              <tr className="border-b border-border bg-bg-inset/20">
+                <th className="sticky left-0 bg-bg-inset/20 z-10" />
                 <th />
                 {ROLE_GROUPS.map((group) =>
                   group.roles.map((role, i) => (
                     <th
                       key={role}
-                      className={`text-center px-1 py-1.5 font-normal text-gray-400 text-[10px] ${i === 0 ? "border-l border-card-border" : ""}`}
+                      className={`text-center px-1 py-1.5 font-normal text-text-quaternary text-[10px] ${i === 0 ? "border-l border-border" : ""}`}
                     >
                       {role}
                     </th>
@@ -209,7 +209,7 @@ export default function ResponsibilitiesPage() {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={2 + ALL_ROLES.length} className="px-4 py-8 text-center text-gray-400 text-sm">
+                  <td colSpan={2 + ALL_ROLES.length} className="px-4 py-8 text-center text-text-quaternary text-sm">
                     No tasks found. Add work packages in the Phases view.
                   </td>
                 </tr>
@@ -218,23 +218,23 @@ export default function ResponsibilitiesPage() {
                 return (
                   <tr
                     key={row.id}
-                    className={`border-b border-card-border/50 hover:bg-cream/20 ${hasNoR ? "bg-[#FAF0EE]/30" : ""}`}
+                    className={`border-b border-border/50 hover:bg-bg-inset/20 ${hasNoR ? "bg-status-danger-light/30" : ""}`}
                   >
-                    <td className="px-3 py-2 font-medium text-ink sticky left-0 bg-white z-10">
+                    <td className="px-3 py-2 font-medium text-text-primary sticky left-0 bg-white z-10">
                       <div className="flex items-center gap-2">
                         <span>{row.name}</span>
-                        {hasNoR && <span className="text-red-400 text-[10px]">⚠ No R</span>}
+                        {hasNoR && <span className="text-status-danger text-[10px]">⚠ No R</span>}
                       </div>
                     </td>
-                    <td className="text-center font-mono text-gray-400">{row.phaseLph || "—"}</td>
+                    <td className="text-center font-mono text-text-quaternary">{row.phaseLph || "—"}</td>
                     {ROLE_GROUPS.map((group) =>
                       group.roles.map((role, i) => {
                         const val = getRaciForRole(row, role);
                         return (
                           <td
                             key={role}
-                            className={`text-center px-0 py-1 ${i === 0 ? "border-l border-card-border" : ""} ${
-                              hasNoR && val === "—" ? "bg-[#FAF0EE]/20" : ""
+                            className={`text-center px-0 py-1 ${i === 0 ? "border-l border-border" : ""} ${
+                              hasNoR && val === "—" ? "bg-status-danger-light/20" : ""
                             }`}
                           >
                             <select

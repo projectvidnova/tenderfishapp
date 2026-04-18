@@ -36,11 +36,11 @@ type Approval = {
 };
 
 const STATUS_STYLES: Record<string, { label: string; cls: string }> = {
-  pending: { label: "Pending", cls: "bg-gray-100 text-gray-500 border-gray-300" },
-  in_review: { label: "In Review", cls: "bg-amber-100 text-bronze border-amber-300" },
-  approved: { label: "Approved", cls: "bg-green-100 text-[#3F7A5A] border-green-300" },
-  rejected: { label: "Rejected", cls: "bg-red-100 text-[#B04A3A] border-red-300" },
-  overdue: { label: "Overdue", cls: "bg-red-200 text-red-800 border-red-400" },
+  pending: { label: "Pending", cls: "bg-bg-inset text-text-tertiary border-border" },
+  in_review: { label: "In Review", cls: "bg-status-warning-bg text-brand-orange border-status-warning-border" },
+  approved: { label: "Approved", cls: "bg-status-success-bg text-status-approve border-status-success-border" },
+  rejected: { label: "Rejected", cls: "bg-status-danger-bg text-status-reject border-status-danger-border" },
+  overdue: { label: "Overdue", cls: "bg-status-danger-bg text-status-danger-fg border-status-danger-border" },
 };
 
 export default function ApprovalsPage() {
@@ -95,7 +95,7 @@ export default function ApprovalsPage() {
   if (loading) {
     return (
       <AppShell>
-        <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Loading approvals…</div>
+        <div className="flex items-center justify-center h-64 text-text-quaternary text-sm">Loading approvals…</div>
       </AppShell>
     );
   }
@@ -104,16 +104,16 @@ export default function ApprovalsPage() {
     <AppShell>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-ink">Approvals</h1>
+          <h1 className="text-2xl font-semibold text-text-primary">Approvals</h1>
           <button className="btn-primary text-sm" onClick={() => setShowCreate(true)}>Request approval</button>
         </div>
 
         {/* Type tabs */}
-        <div className="flex gap-1 overflow-x-auto border-b border-card-border">
+        <div className="flex gap-1 overflow-x-auto border-b border-border">
           <button
             onClick={() => setActiveType("all")}
             className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
-              activeType === "all" ? "border-bronze text-ink" : "border-transparent text-gray-400 hover:text-gray-600"
+              activeType === "all" ? "border-brand-orange text-text-primary" : "border-transparent text-text-quaternary hover:text-text-secondary"
             }`}
           >
             All
@@ -123,7 +123,7 @@ export default function ApprovalsPage() {
               key={t.value}
               onClick={() => setActiveType(t.value)}
               className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
-                activeType === t.value ? "border-bronze text-ink" : "border-transparent text-gray-400 hover:text-gray-600"
+                activeType === t.value ? "border-brand-orange text-text-primary" : "border-transparent text-text-quaternary hover:text-text-secondary"
               }`}
             >
               {t.label}
@@ -135,30 +135,30 @@ export default function ApprovalsPage() {
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-card-border bg-cream/30">
-                <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Approval</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-24">Type</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-28">Requested By</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-24">Date</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-28">Approver</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-24">Due</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-24">Status</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-24">Action</th>
+              <tr className="border-b border-border bg-bg-inset/30">
+                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide">Approval</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-24">Type</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-28">Requested By</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-24">Date</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-28">Approver</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-24">Due</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-24">Status</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-24">Action</th>
               </tr>
             </thead>
             <tbody>
               {approvals.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">No approvals found.</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-text-quaternary">No approvals found.</td></tr>
               ) : approvals.map((a) => {
                 const style = STATUS_STYLES[a.status] || STATUS_STYLES.pending;
                 return (
-                  <tr key={a.id} className="border-b border-card-border last:border-0 hover:bg-cream/20">
-                    <td className="px-4 py-3 font-medium text-ink">{a.name}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500 capitalize">{a.type.replace(/_/g, " ")}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{a.requestedByName || "—"}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500 font-mono">{a.createdAt ? new Date(a.createdAt).toLocaleDateString() : "—"}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{a.approverName || "—"}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500 font-mono">{a.dueDate || "—"}</td>
+                  <tr key={a.id} className="border-b border-border last:border-0 hover:bg-bg-inset/20">
+                    <td className="px-4 py-3 font-medium text-text-primary">{a.name}</td>
+                    <td className="px-4 py-3 text-xs text-text-tertiary capitalize">{a.type.replace(/_/g, " ")}</td>
+                    <td className="px-4 py-3 text-xs text-text-tertiary">{a.requestedByName || "—"}</td>
+                    <td className="px-4 py-3 text-xs text-text-tertiary font-mono">{a.createdAt ? new Date(a.createdAt).toLocaleDateString() : "—"}</td>
+                    <td className="px-4 py-3 text-xs text-text-tertiary">{a.approverName || "—"}</td>
+                    <td className="px-4 py-3 text-xs text-text-tertiary font-mono">{a.dueDate || "—"}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-sm border ${style.cls}`}>
                         {style.label}
@@ -167,7 +167,7 @@ export default function ApprovalsPage() {
                     <td className="px-4 py-3">
                       <button
                         onClick={() => { setShowDetail(a); setReviewNotes(a.notes || ""); }}
-                        className="text-xs text-bronze hover:text-bronze-dark font-medium"
+                        className="text-xs text-brand-orange hover:text-brand-orange-dark font-medium"
                       >
                         {a.status === "pending" || a.status === "in_review" ? "Review" : "View"}
                       </button>
@@ -239,11 +239,11 @@ export default function ApprovalsPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <span className="text-gray-500 text-xs">Type</span>
+                  <span className="text-text-tertiary text-xs">Type</span>
                   <p className="capitalize">{showDetail.type.replace(/_/g, " ")}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-xs">Status</span>
+                  <span className="text-text-tertiary text-xs">Status</span>
                   <p>
                     <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-sm border ${(STATUS_STYLES[showDetail.status] || STATUS_STYLES.pending).cls}`}>
                       {(STATUS_STYLES[showDetail.status] || STATUS_STYLES.pending).label}
@@ -251,20 +251,20 @@ export default function ApprovalsPage() {
                   </p>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-xs">Requested By</span>
+                  <span className="text-text-tertiary text-xs">Requested By</span>
                   <p>{showDetail.requestedByName || "—"}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-xs">Approver</span>
+                  <span className="text-text-tertiary text-xs">Approver</span>
                   <p>{showDetail.approverName || "Not assigned"}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-xs">Due Date</span>
+                  <span className="text-text-tertiary text-xs">Due Date</span>
                   <p className="font-mono">{showDetail.dueDate || "—"}</p>
                 </div>
                 {showDetail.relatedGate && (
                   <div>
-                    <span className="text-gray-500 text-xs">Related Gate</span>
+                    <span className="text-text-tertiary text-xs">Related Gate</span>
                     <p>Gate {showDetail.relatedGate}</p>
                   </div>
                 )}
@@ -285,13 +285,13 @@ export default function ApprovalsPage() {
                   </div>
                   <div className="flex items-center gap-3 pt-2">
                     <button
-                      className="bg-[#3F7A5A] text-white px-4 py-2 text-sm font-medium rounded-button hover:opacity-90 transition-opacity"
+                      className="bg-status-approve text-white px-4 py-2 text-sm font-medium rounded-button hover:opacity-90 transition-opacity"
                       onClick={() => updateApprovalStatus(showDetail.id, "approved", reviewNotes)}
                     >
                       Approve
                     </button>
                     <button
-                      className="bg-[#B04A3A] text-white px-4 py-2 text-sm font-medium rounded-button hover:opacity-90 transition-opacity"
+                      className="bg-status-reject text-white px-4 py-2 text-sm font-medium rounded-button hover:opacity-90 transition-opacity"
                       onClick={() => updateApprovalStatus(showDetail.id, "rejected", reviewNotes)}
                     >
                       Reject
@@ -307,14 +307,14 @@ export default function ApprovalsPage() {
               )}
 
               {showDetail.status === "approved" && showDetail.approvedAt && (
-                <div className="bg-green-50 border border-green-200 rounded-card px-4 py-3 text-sm text-green-700">
+                <div className="bg-status-success-light border border-green-200 rounded-xl px-4 py-3 text-sm text-status-success-fg">
                   Approved on {new Date(showDetail.approvedAt).toLocaleDateString()}
                   {showDetail.notes && <p className="mt-1 text-xs">{showDetail.notes}</p>}
                 </div>
               )}
 
               {showDetail.status === "rejected" && (
-                <div className="bg-red-50 border border-red-200 rounded-card px-4 py-3 text-sm text-red-700">
+                <div className="bg-status-danger-light border border-status-danger-border rounded-xl px-4 py-3 text-sm text-status-danger-fg">
                   Rejected {showDetail.notes && <span>— {showDetail.notes}</span>}
                 </div>
               )}

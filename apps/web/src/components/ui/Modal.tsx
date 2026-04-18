@@ -39,18 +39,19 @@ export function Modal({ open, onClose, title, children, width = "max-w-lg" }: Mo
       }}
     >
       <div
-        className={`${width} w-full bg-white rounded-card shadow-xl mx-4`}
+        className={`${width} w-full bg-white mx-4`}
+        style={{ borderRadius: "20px", boxShadow: "0 8px 30px rgba(0,0,0,0.12)" }}
         role="dialog"
         aria-modal="true"
         aria-label={title}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-card-border">
-          <h2 className="text-lg font-semibold text-ink">{title}</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-warm rounded-sm transition-colors"
+            className="p-1 hover:bg-bg-inset rounded-full transition-colors"
           >
-            <X size={18} className="text-gray-400" />
+            <X size={18} className="text-text-tertiary" />
           </button>
         </div>
         <div className="px-6 py-4">{children}</div>

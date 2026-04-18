@@ -57,21 +57,21 @@ type Task = {
 };
 
 const STATUS_DOT: Record<string, string> = {
-  complete: "bg-green-500",
-  active: "bg-bronze",
-  not_started: "bg-gray-300",
+  complete: "bg-status-success",
+  active: "bg-brand-orange",
+  not_started: "bg-border",
 };
 
 const TASK_STATUS_LABEL: Record<string, { label: string; cls: string }> = {
-  not_started: { label: "Not Started", cls: "text-gray-400 bg-gray-50 border-gray-200" },
-  in_progress: { label: "In Progress", cls: "text-bronze bg-amber-50 border-amber-200" },
-  complete: { label: "Complete", cls: "text-green-700 bg-green-50 border-green-200" },
+  not_started: { label: "Not Started", cls: "text-text-quaternary bg-bg-bg-page border-border" },
+  in_progress: { label: "In Progress", cls: "text-brand-orange bg-status-warning-light border-status-warning-border" },
+  complete: { label: "Complete", cls: "text-status-success-fg bg-status-success-light border-green-200" },
 };
 
 const DECISION_STATUS: Record<string, { label: string; cls: string }> = {
-  open: { label: "Open", cls: "text-blue-600 bg-blue-50 border-blue-200" },
-  decided: { label: "Decided", cls: "text-green-700 bg-green-50 border-green-200" },
-  overdue: { label: "Overdue", cls: "text-red-600 bg-red-50 border-red-200" },
+  open: { label: "Open", cls: "text-status-info-fg bg-status-info-light border-blue-200" },
+  decided: { label: "Decided", cls: "text-status-success-fg bg-status-success-light border-green-200" },
+  overdue: { label: "Overdue", cls: "text-status-danger bg-status-danger-light border-status-danger-border" },
 };
 
 const INNER_TABS = ["Required Outputs", "Work Packages", "Required Decisions", "Required Documents", "Dependencies"] as const;
@@ -203,7 +203,7 @@ export default function PhasesPage() {
   if (loading) {
     return (
       <AppShell>
-        <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Loading phases…</div>
+        <div className="flex items-center justify-center h-64 text-text-quaternary text-sm">Loading phases…</div>
       </AppShell>
     );
   }
@@ -220,15 +220,15 @@ export default function PhasesPage() {
               <button
                 key={phase.lph}
                 onClick={() => { setSelectedLph(phase.lph); setInnerTab("Required Outputs"); }}
-                className={`flex-shrink-0 flex items-center gap-2 px-4 py-3 rounded-card border transition-all ${
+                className={`flex-shrink-0 flex items-center gap-2 px-4 py-3 rounded-xl border transition-all ${
                   isActive
-                    ? "border-bronze bg-white shadow-sm"
-                    : "border-transparent hover:bg-warm"
+                    ? "border-brand-orange bg-white shadow-sm"
+                    : "border-transparent hover:bg-bg-inset"
                 }`}
               >
                 <span className={`w-2 h-2 rounded-full ${STATUS_DOT[phase.status] || STATUS_DOT.not_started}`} />
-                <span className="font-mono text-xs text-gray-500">LPH {phase.lph}</span>
-                <span className="text-sm font-medium text-ink whitespace-nowrap">{meta?.nameDe || `Phase ${phase.lph}`}</span>
+                <span className="font-mono text-xs text-text-tertiary">LPH {phase.lph}</span>
+                <span className="text-sm font-medium text-text-primary whitespace-nowrap">{meta?.nameDe || `Phase ${phase.lph}`}</span>
               </button>
             );
           })}
@@ -241,11 +241,11 @@ export default function PhasesPage() {
             <div className="card p-6 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <h1 className="text-xl font-semibold text-ink">
+                  <h1 className="text-xl font-semibold text-text-primary">
                     LPH {selectedPhase.lph} · {LPH_META[selectedPhase.lph]?.nameDe}
                   </h1>
                   <StatusBadge status={selectedPhase.status} />
-                  {saving && <span className="text-xs text-gray-400 animate-pulse">Saved</span>}
+                  {saving && <span className="text-xs text-text-quaternary animate-pulse">Saved</span>}
                 </div>
                 <select
                   value={selectedPhase.status}
@@ -258,24 +258,24 @@ export default function PhasesPage() {
                 </select>
               </div>
 
-              <p className="text-sm text-gray-600">{selectedPhase.objective}</p>
+              <p className="text-sm text-text-secondary">{selectedPhase.objective}</p>
 
-              <div className="flex items-center gap-4 text-xs text-gray-500">
+              <div className="flex items-center gap-4 text-xs text-text-tertiary">
                 <span className="font-mono">
                   {selectedPhase.startDate || "—"} → {selectedPhase.endDate || "—"}
                 </span>
                 {selectedPhase.dateDataState !== "CONFIRMED" && selectedPhase.startDate && (
                   <DataStateChip state={selectedPhase.dateDataState} />
                 )}
-                <span className="text-gray-300">|</span>
+                <span className="text-text-quaternary">|</span>
                 <span>{selectedPhase.taskCounts.complete}/{selectedPhase.taskCounts.total} tasks complete</span>
               </div>
 
               {/* Compact progress bar */}
               {selectedPhase.taskCounts.total > 0 && (
-                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-bg-inset rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-bronze rounded-full transition-all"
+                    className="h-full bg-brand-orange rounded-full transition-all"
                     style={{ width: `${(selectedPhase.taskCounts.complete / selectedPhase.taskCounts.total) * 100}%` }}
                   />
                 </div>
@@ -283,15 +283,15 @@ export default function PhasesPage() {
             </div>
 
             {/* Inner Tabs */}
-            <div className="flex items-center gap-1 border-b border-card-border">
+            <div className="flex items-center gap-1 border-b border-border">
               {INNER_TABS.map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setInnerTab(tab)}
                   className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                     innerTab === tab
-                      ? "border-bronze text-ink"
-                      : "border-transparent text-gray-400 hover:text-gray-600"
+                      ? "border-brand-orange text-text-primary"
+                      : "border-transparent text-text-quaternary hover:text-text-secondary"
                   }`}
                 >
                   {tab}
@@ -302,11 +302,11 @@ export default function PhasesPage() {
             {/* Tab Content */}
             <div className="card overflow-hidden">
               {/* Add button */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-card-border bg-cream/30">
-                <span className="text-xs text-gray-500 font-medium">{tasks.length} item{tasks.length !== 1 ? "s" : ""}</span>
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg-inset/30">
+                <span className="text-xs text-text-tertiary font-medium">{tasks.length} item{tasks.length !== 1 ? "s" : ""}</span>
                 <button
                   onClick={() => setShowAddModal(true)}
-                  className="text-xs font-medium text-bronze hover:text-bronze-dark transition-colors"
+                  className="text-xs font-medium text-brand-orange hover:text-brand-orange-dark transition-colors"
                 >
                   + Add {innerTab === "Required Outputs" ? "output" : innerTab === "Work Packages" ? "work package" : innerTab === "Required Decisions" ? "decision" : innerTab === "Required Documents" ? "document" : "dependency"}
                 </button>
@@ -316,37 +316,37 @@ export default function PhasesPage() {
               {innerTab === "Required Outputs" && (
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-card-border bg-cream/30">
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Output</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Description</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-28">Status</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-32">Owner</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-28">Due</th>
+                    <tr className="border-b border-border bg-bg-inset/30">
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide">Output</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide">Description</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-28">Status</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-32">Owner</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-28">Due</th>
                       <th className="w-10" />
                     </tr>
                   </thead>
                   <tbody>
                     {tasks.length === 0 ? (
-                      <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No required outputs defined.</td></tr>
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-text-quaternary">No required outputs defined.</td></tr>
                     ) : tasks.map((t) => (
-                      <tr key={t.id} className="border-b border-card-border last:border-0 hover:bg-cream/20">
-                        <td className="px-4 py-3 font-medium text-ink">{t.name}</td>
-                        <td className="px-4 py-3 text-gray-500 truncate max-w-[200px]">{t.description || "—"}</td>
+                      <tr key={t.id} className="border-b border-border last:border-0 hover:bg-bg-inset/20">
+                        <td className="px-4 py-3 font-medium text-text-primary">{t.name}</td>
+                        <td className="px-4 py-3 text-text-tertiary truncate max-w-[200px]">{t.description || "—"}</td>
                         <td className="px-4 py-3">
                           <select
                             value={t.status}
                             onChange={(e) => updateTask(t.id, { status: e.target.value })}
-                            className="text-xs border border-card-border rounded-sm px-1.5 py-0.5 bg-white"
+                            className="text-xs border border-border rounded-sm px-1.5 py-0.5 bg-white"
                           >
                             <option value="not_started">Not Started</option>
                             <option value="in_progress">In Progress</option>
                             <option value="complete">Complete</option>
                           </select>
                         </td>
-                        <td className="px-4 py-3 text-gray-500 text-xs">{t.ownerName || "—"}</td>
-                        <td className="px-4 py-3 text-gray-500 font-mono text-xs">{t.dueDate || "—"}</td>
+                        <td className="px-4 py-3 text-text-tertiary text-xs">{t.ownerName || "—"}</td>
+                        <td className="px-4 py-3 text-text-tertiary font-mono text-xs">{t.dueDate || "—"}</td>
                         <td className="px-2 py-3">
-                          <button onClick={() => deleteTask(t.id)} className="text-gray-300 hover:text-red-500 text-xs">×</button>
+                          <button onClick={() => deleteTask(t.id)} className="text-text-quaternary hover:text-status-danger text-xs">×</button>
                         </td>
                       </tr>
                     ))}
@@ -358,41 +358,41 @@ export default function PhasesPage() {
               {innerTab === "Work Packages" && (
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-card-border bg-cream/30">
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Work Package</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-24">Status</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-28">Owner</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-28">Reviewer</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-28">Approver</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-24">Due</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-16">Evidence</th>
+                    <tr className="border-b border-border bg-bg-inset/30">
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide">Work Package</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-24">Status</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-28">Owner</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-28">Reviewer</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-28">Approver</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-24">Due</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-16">Evidence</th>
                       <th className="w-10" />
                     </tr>
                   </thead>
                   <tbody>
                     {tasks.length === 0 ? (
-                      <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">No work packages defined.</td></tr>
+                      <tr><td colSpan={8} className="px-4 py-8 text-center text-text-quaternary">No work packages defined.</td></tr>
                     ) : tasks.map((t) => (
-                      <tr key={t.id} className="border-b border-card-border last:border-0 hover:bg-cream/20">
+                      <tr key={t.id} className="border-b border-border last:border-0 hover:bg-bg-inset/20">
                         <td className="px-4 py-3">
-                          <div className="font-medium text-ink">{t.name}</div>
-                          {t.description && <div className="text-xs text-gray-400 mt-0.5 truncate max-w-[250px]">{t.description}</div>}
+                          <div className="font-medium text-text-primary">{t.name}</div>
+                          {t.description && <div className="text-xs text-text-quaternary mt-0.5 truncate max-w-[250px]">{t.description}</div>}
                         </td>
                         <td className="px-4 py-3">
                           <select
                             value={t.status}
                             onChange={(e) => updateTask(t.id, { status: e.target.value })}
-                            className="text-xs border border-card-border rounded-sm px-1.5 py-0.5 bg-white"
+                            className="text-xs border border-border rounded-sm px-1.5 py-0.5 bg-white"
                           >
                             <option value="not_started">Not Started</option>
                             <option value="in_progress">In Progress</option>
                             <option value="complete">Complete</option>
                           </select>
                         </td>
-                        <td className="px-4 py-3 text-gray-500 text-xs">{t.ownerName || "—"}</td>
-                        <td className="px-4 py-3 text-gray-500 text-xs">{t.reviewerName || "—"}</td>
-                        <td className="px-4 py-3 text-gray-500 text-xs">{t.approverName || "—"}</td>
-                        <td className="px-4 py-3 text-gray-500 font-mono text-xs">{t.dueDate || "—"}</td>
+                        <td className="px-4 py-3 text-text-tertiary text-xs">{t.ownerName || "—"}</td>
+                        <td className="px-4 py-3 text-text-tertiary text-xs">{t.reviewerName || "—"}</td>
+                        <td className="px-4 py-3 text-text-tertiary text-xs">{t.approverName || "—"}</td>
+                        <td className="px-4 py-3 text-text-tertiary font-mono text-xs">{t.dueDate || "—"}</td>
                         <td className="px-4 py-3 text-center">
                           <input
                             type="checkbox"
@@ -402,7 +402,7 @@ export default function PhasesPage() {
                           />
                         </td>
                         <td className="px-2 py-3">
-                          <button onClick={() => deleteTask(t.id)} className="text-gray-300 hover:text-red-500 text-xs">×</button>
+                          <button onClick={() => deleteTask(t.id)} className="text-text-quaternary hover:text-status-danger text-xs">×</button>
                         </td>
                       </tr>
                     ))}
@@ -414,37 +414,37 @@ export default function PhasesPage() {
               {innerTab === "Required Decisions" && (
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-card-border bg-cream/30">
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Decision</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-32">Decision Maker</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-24">By When</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-24">Status</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Notes</th>
+                    <tr className="border-b border-border bg-bg-inset/30">
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide">Decision</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-32">Decision Maker</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-24">By When</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-24">Status</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide">Notes</th>
                       <th className="w-10" />
                     </tr>
                   </thead>
                   <tbody>
                     {tasks.length === 0 ? (
-                      <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No decisions required.</td></tr>
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-text-quaternary">No decisions required.</td></tr>
                     ) : tasks.map((t) => (
-                      <tr key={t.id} className="border-b border-card-border last:border-0 hover:bg-cream/20">
-                        <td className="px-4 py-3 font-medium text-ink">{t.name}</td>
-                        <td className="px-4 py-3 text-gray-500 text-xs">{t.decisionMaker || "—"}</td>
-                        <td className="px-4 py-3 text-gray-500 font-mono text-xs">{t.dueDate || "—"}</td>
+                      <tr key={t.id} className="border-b border-border last:border-0 hover:bg-bg-inset/20">
+                        <td className="px-4 py-3 font-medium text-text-primary">{t.name}</td>
+                        <td className="px-4 py-3 text-text-tertiary text-xs">{t.decisionMaker || "—"}</td>
+                        <td className="px-4 py-3 text-text-tertiary font-mono text-xs">{t.dueDate || "—"}</td>
                         <td className="px-4 py-3">
                           <select
                             value={t.decisionStatus || "open"}
                             onChange={(e) => updateTask(t.id, { decisionStatus: e.target.value })}
-                            className="text-xs border border-card-border rounded-sm px-1.5 py-0.5 bg-white"
+                            className="text-xs border border-border rounded-sm px-1.5 py-0.5 bg-white"
                           >
                             <option value="open">Open</option>
                             <option value="decided">Decided</option>
                             <option value="overdue">Overdue</option>
                           </select>
                         </td>
-                        <td className="px-4 py-3 text-gray-400 text-xs truncate max-w-[200px]">{t.decisionNotes || "—"}</td>
+                        <td className="px-4 py-3 text-text-quaternary text-xs truncate max-w-[200px]">{t.decisionNotes || "—"}</td>
                         <td className="px-2 py-3">
-                          <button onClick={() => deleteTask(t.id)} className="text-gray-300 hover:text-red-500 text-xs">×</button>
+                          <button onClick={() => deleteTask(t.id)} className="text-text-quaternary hover:text-status-danger text-xs">×</button>
                         </td>
                       </tr>
                     ))}
@@ -456,28 +456,28 @@ export default function PhasesPage() {
               {innerTab === "Required Documents" && (
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-card-border bg-cream/30">
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Document</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-28">Type</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-36">Required For</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-24">Status</th>
-                      <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-20">Upload</th>
+                    <tr className="border-b border-border bg-bg-inset/30">
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide">Document</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-28">Type</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-36">Required For</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-24">Status</th>
+                      <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-20">Upload</th>
                       <th className="w-10" />
                     </tr>
                   </thead>
                   <tbody>
                     {tasks.length === 0 ? (
-                      <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No documents required.</td></tr>
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-text-quaternary">No documents required.</td></tr>
                     ) : tasks.map((t) => (
-                      <tr key={t.id} className="border-b border-card-border last:border-0 hover:bg-cream/20">
-                        <td className="px-4 py-3 font-medium text-ink">{t.name}</td>
-                        <td className="px-4 py-3 text-gray-500 text-xs">{t.documentType || "—"}</td>
-                        <td className="px-4 py-3 text-gray-500 text-xs">{t.documentRequiredFor || "—"}</td>
+                      <tr key={t.id} className="border-b border-border last:border-0 hover:bg-bg-inset/20">
+                        <td className="px-4 py-3 font-medium text-text-primary">{t.name}</td>
+                        <td className="px-4 py-3 text-text-tertiary text-xs">{t.documentType || "—"}</td>
+                        <td className="px-4 py-3 text-text-tertiary text-xs">{t.documentRequiredFor || "—"}</td>
                         <td className="px-4 py-3">
                           <select
                             value={t.status}
                             onChange={(e) => updateTask(t.id, { status: e.target.value })}
-                            className="text-xs border border-card-border rounded-sm px-1.5 py-0.5 bg-white"
+                            className="text-xs border border-border rounded-sm px-1.5 py-0.5 bg-white"
                           >
                             <option value="not_started">Not Started</option>
                             <option value="in_progress">In Progress</option>
@@ -486,13 +486,13 @@ export default function PhasesPage() {
                         </td>
                         <td className="px-4 py-3">
                           {t.documentFileRef ? (
-                            <span className="text-xs text-green-600">✓ Uploaded</span>
+                            <span className="text-xs text-status-success-fg">✓ Uploaded</span>
                           ) : (
-                            <button className="text-xs text-bronze hover:text-bronze-dark font-medium">Upload</button>
+                            <button className="text-xs text-brand-orange hover:text-brand-orange-dark font-medium">Upload</button>
                           )}
                         </td>
                         <td className="px-2 py-3">
-                          <button onClick={() => deleteTask(t.id)} className="text-gray-300 hover:text-red-500 text-xs">×</button>
+                          <button onClick={() => deleteTask(t.id)} className="text-text-quaternary hover:text-status-danger text-xs">×</button>
                         </td>
                       </tr>
                     ))}
@@ -504,24 +504,24 @@ export default function PhasesPage() {
               {innerTab === "Dependencies" && (
                 <div className="p-4 space-y-3">
                   {tasks.length === 0 ? (
-                    <p className="text-center text-gray-400 text-sm py-8">No dependencies from previous phase.</p>
+                    <p className="text-center text-text-quaternary text-sm py-8">No dependencies from previous phase.</p>
                   ) : tasks.map((t) => (
                     <div
                       key={t.id}
-                      className={`flex items-center justify-between p-3 rounded-card border ${
+                      className={`flex items-center justify-between p-3 rounded-xl border ${
                         t.status !== "complete" && selectedPhase?.status === "active"
-                          ? "border-red-300 bg-red-50/50"
-                          : "border-card-border"
+                          ? "border-status-danger-border bg-status-danger-light/50"
+                          : "border-border"
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <span className={`w-2 h-2 rounded-full ${STATUS_DOT[t.status] || STATUS_DOT.not_started}`} />
-                        <span className="text-sm text-ink">{t.name}</span>
+                        <span className="text-sm text-text-primary">{t.name}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <StatusBadge status={t.status} />
                         {t.status !== "complete" && selectedPhase?.status === "active" && (
-                          <span className="text-xs text-red-500 font-medium">⚠ Incomplete</span>
+                          <span className="text-xs text-status-danger font-medium">⚠ Incomplete</span>
                         )}
                       </div>
                     </div>

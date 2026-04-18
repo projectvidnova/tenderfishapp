@@ -65,24 +65,24 @@ export default function InviteAcceptPage() {
   }
 
   return (
-    <div className="min-h-screen bg-page flex items-center justify-center p-8">
+    <div className="min-h-screen bg-bg-bg-page flex items-center justify-center p-8">
       <div className="w-full max-w-md">
         {status === "loading" && (
           <div className="card p-8 text-center">
-            <p className="text-sm text-gray-500">Verifying invitation...</p>
+            <p className="text-sm text-text-tertiary">Verifying invitation...</p>
           </div>
         )}
 
         {status === "valid" && invite && (
           <div className="card p-8 space-y-6 text-center">
             <div>
-              <h1 className="text-xl font-semibold text-ink">
+              <h1 className="text-xl font-semibold text-text-primary">
                 You&apos;re invited to join
               </h1>
-              <p className="text-2xl font-semibold text-bronze mt-2">
+              <p className="text-2xl font-semibold text-brand-orange mt-2">
                 {invite.workspaceName}
               </p>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-sm text-text-tertiary mt-2">
                 {invite.inviterName} invited you as{" "}
                 <span className="font-medium">{invite.role.replace("_", " ")}</span>
               </p>
@@ -96,7 +96,7 @@ export default function InviteAcceptPage() {
               {accepting ? "Joining..." : "Accept invitation"}
             </button>
 
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-text-quaternary">
               By accepting, you&apos;ll join this workspace and gain access to its projects.
             </p>
           </div>
@@ -104,8 +104,8 @@ export default function InviteAcceptPage() {
 
         {status === "expired" && (
           <div className="card p-8 space-y-4 text-center">
-            <h1 className="text-xl font-semibold text-ink">Invitation expired</h1>
-            <p className="text-sm text-gray-500">
+            <h1 className="text-xl font-semibold text-text-primary">Invitation expired</h1>
+            <p className="text-sm text-text-tertiary">
               This invitation link has expired. Ask the workspace admin to send a new one.
             </p>
             <Link href="/login" className="btn-secondary inline-block">
@@ -116,8 +116,8 @@ export default function InviteAcceptPage() {
 
         {status === "error" && (
           <div className="card p-8 space-y-4 text-center">
-            <h1 className="text-xl font-semibold text-ink">Invalid invitation</h1>
-            <p className="text-sm text-gray-500">
+            <h1 className="text-xl font-semibold text-text-primary">Invalid invitation</h1>
+            <p className="text-sm text-text-tertiary">
               This invitation link is not valid.
             </p>
             <Link href="/login" className="btn-secondary inline-block">

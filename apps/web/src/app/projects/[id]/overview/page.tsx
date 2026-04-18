@@ -114,8 +114,8 @@ export default function ProjectOverviewPage() {
     return (
       <AppShell>
         <div className="animate-pulse space-y-6">
-          <div className="h-14 bg-gray-100 rounded" />
-          <div className="h-64 bg-gray-100 rounded" />
+          <div className="h-14 bg-bg-inset rounded" />
+          <div className="h-64 bg-bg-inset rounded" />
         </div>
       </AppShell>
     );
@@ -124,7 +124,7 @@ export default function ProjectOverviewPage() {
   if (!data) {
     return (
       <AppShell>
-        <div className="text-center py-20 text-gray-400">
+        <div className="text-center py-20 text-text-quaternary">
           Project not found
         </div>
       </AppShell>
@@ -152,7 +152,7 @@ export default function ProjectOverviewPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Column 1: Project Core */}
           <div className="card p-5 space-y-4">
-            <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wide">
               Project Core
             </h3>
 
@@ -164,8 +164,8 @@ export default function ProjectOverviewPage() {
               onSave={fetchData}
             />
             <div>
-              <span className="text-xs text-gray-400 block mb-0.5">Type</span>
-              <span className="text-sm text-ink capitalize">
+              <span className="text-xs text-text-quaternary block mb-0.5">Type</span>
+              <span className="text-sm text-text-primary capitalize">
                 {project.type?.replace(/_/g, " ") || "—"}
               </span>
             </div>
@@ -191,10 +191,10 @@ export default function ProjectOverviewPage() {
               onSave={fetchData}
             />
             <div>
-              <span className="text-xs text-gray-400 block mb-0.5">
+              <span className="text-xs text-text-quaternary block mb-0.5">
                 Procurement model
               </span>
-              <span className="text-sm text-ink capitalize">
+              <span className="text-sm text-text-primary capitalize">
                 {project.procurementModel?.replace(/_/g, " ") || "—"}
               </span>
             </div>
@@ -215,14 +215,14 @@ export default function ProjectOverviewPage() {
               onSave={fetchData}
             />
             <div>
-              <span className="text-xs text-gray-400 block mb-0.5">Status</span>
+              <span className="text-xs text-text-quaternary block mb-0.5">Status</span>
               <span
                 className={`text-sm font-medium capitalize ${
                   project.status === "active"
                     ? "text-gate-complete"
                     : project.status === "on_hold"
-                    ? "text-bronze"
-                    : "text-gray-400"
+                    ? "text-brand-orange"
+                    : "text-text-quaternary"
                 }`}
               >
                 {project.status?.replace(/_/g, " ")}
@@ -232,7 +232,7 @@ export default function ProjectOverviewPage() {
 
           {/* Column 2: Readiness Overview */}
           <div className="card p-5 space-y-5">
-            <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wide">
               Readiness Overview
             </h3>
 
@@ -265,7 +265,7 @@ export default function ProjectOverviewPage() {
 
           {/* Column 3: Gate Status */}
           <div className="card p-5 space-y-3">
-            <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wide">
               Gate Status
             </h3>
 
@@ -280,10 +280,10 @@ export default function ProjectOverviewPage() {
                 g.status === "complete"
                   ? "text-gate-complete"
                   : g.status === "in_progress"
-                  ? "text-bronze"
+                  ? "text-brand-orange"
                   : g.status === "overridden"
                   ? "text-orange-500"
-                  : "text-gray-300";
+                  : "text-text-quaternary";
               const statusLabel =
                 g.status === "complete"
                   ? "Complete"
@@ -297,25 +297,25 @@ export default function ProjectOverviewPage() {
                 <Link
                   key={g.gate}
                   href={`/projects/${projectId}/gates`}
-                  className="flex items-center gap-3 py-2 px-2 rounded-sm hover:bg-warm transition-colors group"
+                  className="flex items-center gap-3 py-2 px-2 rounded-sm hover:bg-bg-inset transition-colors group"
                 >
                   <span className={`text-lg ${color}`}>{icon}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-mono font-medium text-ink">
+                      <span className="text-sm font-mono font-medium text-text-primary">
                         Gate {g.gate}
                       </span>
                       <span className={`text-xs font-medium ${color}`}>
                         {statusLabel}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-400 truncate">
+                    <p className="text-xs text-text-quaternary truncate">
                       {GATE_NAMES[g.gate]}
                     </p>
                   </div>
                   <ExternalLink
                     size={12}
-                    className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="text-text-quaternary opacity-0 group-hover:opacity-100 transition-opacity"
                   />
                 </Link>
               );
@@ -326,7 +326,7 @@ export default function ProjectOverviewPage() {
         {/* Action Strip */}
         {actionItems.length > 0 && (
           <div>
-            <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">
+            <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-3">
               Action Required
             </h3>
             <div className="flex gap-3 overflow-x-auto pb-2">
@@ -334,24 +334,24 @@ export default function ProjectOverviewPage() {
                 <Link
                   key={i}
                   href={item.link}
-                  className="card p-4 min-w-[260px] shrink-0 hover:border-bronze/50 transition-colors"
+                  className="card p-4 min-w-[260px] shrink-0 hover:border-brand-orange/50 transition-colors"
                 >
-                  <span className="text-xs font-medium text-bronze">
+                  <span className="text-xs font-medium text-brand-orange">
                     {item.category}
                   </span>
-                  <p className="text-sm text-ink mt-1">{item.description}</p>
+                  <p className="text-sm text-text-primary mt-1">{item.description}</p>
                   {item.due && (
                     <p
                       className={`text-xs mt-2 ${
                         item.due < new Date().toISOString().slice(0, 10)
                           ? "text-health-red font-medium"
-                          : "text-gray-400"
+                          : "text-text-quaternary"
                       }`}
                     >
                       Due {item.due}
                     </p>
                   )}
-                  <span className="text-xs text-bronze font-medium mt-2 inline-flex items-center gap-1">
+                  <span className="text-xs text-brand-orange font-medium mt-2 inline-flex items-center gap-1">
                     Resolve
                     <ArrowRight size={12} />
                   </span>
@@ -364,21 +364,21 @@ export default function ProjectOverviewPage() {
         {/* Project Facts Table */}
         {facts.length > 0 && (
           <div className="card overflow-hidden">
-            <div className="px-5 py-3 border-b border-card-border">
-              <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            <div className="px-5 py-3 border-b border-border">
+              <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wide">
                 Extracted Facts
               </h3>
             </div>
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-card-border bg-cream/50">
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                <tr className="border-b border-border bg-bg-inset/50">
+                  <th className="text-left px-4 py-2.5 font-medium text-text-tertiary text-xs uppercase tracking-wide">
                     Field
                   </th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                  <th className="text-left px-4 py-2.5 font-medium text-text-tertiary text-xs uppercase tracking-wide">
                     Value
                   </th>
-                  <th className="text-left px-4 py-2.5 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                  <th className="text-left px-4 py-2.5 font-medium text-text-tertiary text-xs uppercase tracking-wide">
                     State
                   </th>
                 </tr>
@@ -387,12 +387,12 @@ export default function ProjectOverviewPage() {
                 {facts.map((f) => (
                   <tr
                     key={f.id}
-                    className="border-b border-card-border last:border-0"
+                    className="border-b border-border last:border-0"
                   >
-                    <td className="px-4 py-2.5 text-gray-600 capitalize">
+                    <td className="px-4 py-2.5 text-text-secondary capitalize">
                       {f.fieldName.replace(/_/g, " ")}
                     </td>
-                    <td className="px-4 py-2.5 text-ink font-medium">
+                    <td className="px-4 py-2.5 text-text-primary font-medium">
                       {f.value || "—"}
                     </td>
                     <td className="px-4 py-2.5">
@@ -456,7 +456,7 @@ function EditableField({
   if (editing) {
     return (
       <div>
-        <span className="text-xs text-gray-400 block mb-0.5">{label}</span>
+        <span className="text-xs text-text-quaternary block mb-0.5">{label}</span>
         {multiline ? (
           <textarea
             className="input text-sm min-h-[60px] resize-y"
@@ -479,15 +479,15 @@ function EditableField({
         <div className="flex gap-1 mt-1">
           <button
             onClick={save}
-            className="p-1 hover:bg-warm rounded-sm"
+            className="p-1 hover:bg-bg-inset rounded-sm"
           >
             <Check size={14} className="text-gate-complete" />
           </button>
           <button
             onClick={() => setEditing(false)}
-            className="p-1 hover:bg-warm rounded-sm"
+            className="p-1 hover:bg-bg-inset rounded-sm"
           >
-            <X size={14} className="text-gray-400" />
+            <X size={14} className="text-text-quaternary" />
           </button>
         </div>
       </div>
@@ -502,12 +502,12 @@ function EditableField({
         setEditing(true);
       }}
     >
-      <span className="text-xs text-gray-400 block mb-0.5">{label}</span>
-      <span className="text-sm text-ink inline-flex items-center gap-1.5">
+      <span className="text-xs text-text-quaternary block mb-0.5">{label}</span>
+      <span className="text-sm text-text-primary inline-flex items-center gap-1.5">
         {value || "—"}
         <Pencil
           size={12}
-          className="text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="text-text-quaternary opacity-0 group-hover:opacity-100 transition-opacity"
         />
       </span>
     </div>
@@ -528,16 +528,16 @@ function ReadinessBar({
   return (
     <Link href={href} className="block group">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-sm text-gray-600 group-hover:text-bronze transition-colors">
+        <span className="text-sm text-text-secondary group-hover:text-brand-orange transition-colors">
           {label}
         </span>
-        <span className="text-xs font-mono font-medium text-gray-500">
+        <span className="text-xs font-mono font-medium text-text-tertiary">
           {value}%
         </span>
       </div>
-      <div className="w-full h-1 bg-warm rounded-full overflow-hidden">
+      <div className="w-full h-1 bg-bg-inset rounded-full overflow-hidden">
         <div
-          className="h-full bg-bronze rounded-full transition-all duration-500"
+          className="h-full bg-brand-orange rounded-full transition-all duration-500"
           style={{ width: `${Math.min(value, 100)}%` }}
         />
       </div>

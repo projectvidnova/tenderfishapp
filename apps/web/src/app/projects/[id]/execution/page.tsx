@@ -27,20 +27,20 @@ const REVIEW_OUTCOMES = [
 ];
 
 const OUTCOME_STYLE: Record<string, string> = {
-  accepted: "bg-emerald-100 text-emerald-700",
-  approved: "bg-emerald-100 text-emerald-700",
-  approved_with_comments: "bg-blue-100 text-blue-700",
-  partially_accepted: "bg-blue-100 text-blue-700",
-  rejected: "bg-red-100 text-[#B04A3A]",
-  rework_required: "bg-amber-100 text-amber-700",
-  moved_to_punch_list: "bg-purple-100 text-purple-700",
-  requires_clarification: "bg-gray-200 text-gray-600",
+  accepted: "bg-status-emerald-bg text-status-emerald-fg",
+  approved: "bg-status-emerald-bg text-status-emerald-fg",
+  approved_with_comments: "bg-status-info-bg text-status-info-fg",
+  partially_accepted: "bg-status-info-bg text-status-info-fg",
+  rejected: "bg-status-danger-bg text-status-reject",
+  rework_required: "bg-status-warning-bg text-status-warning-fg",
+  moved_to_punch_list: "bg-status-purple-bg text-status-purple-fg",
+  requires_clarification: "bg-bg-inset text-text-secondary",
 };
 
 const PUNCH_STATUS: Record<string, { label: string; cls: string }> = {
-  open: { label: "Open", cls: "bg-red-100 text-[#B04A3A]" },
-  in_progress: { label: "In Progress", cls: "bg-blue-100 text-blue-700" },
-  closed: { label: "Closed", cls: "bg-emerald-100 text-emerald-700" },
+  open: { label: "Open", cls: "bg-status-danger-bg text-status-reject" },
+  in_progress: { label: "In Progress", cls: "bg-status-info-bg text-status-info-fg" },
+  closed: { label: "Closed", cls: "bg-status-emerald-bg text-status-emerald-fg" },
 };
 
 interface Submission {
@@ -182,34 +182,34 @@ export default function ExecutionPage() {
   const acceptedItems = submissions.filter((s) => s.reviewOutcome === "approved" || s.reviewOutcome === "approved_with_comments");
   const invoicingItems = acceptedItems; // Same for now — confirmed by admin
 
-  if (loading) return <AppShell><div className="p-8 text-gray-400">Loading…</div></AppShell>;
+  if (loading) return <AppShell><div className="p-8 text-text-quaternary">Loading…</div></AppShell>;
 
   return (
     <AppShell>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-ink">Execution Tracking</h1>
+          <h1 className="text-2xl font-semibold text-text-primary">Execution Tracking</h1>
           <button onClick={() => setShowNew(true)} className="btn-primary text-sm">+ New submission</button>
         </div>
 
         {/* Warning */}
-        <div className="bg-amber-50 border border-amber-200 rounded px-4 py-2 text-sm text-amber-700">
+        <div className="bg-status-warning-light border border-status-warning-border rounded px-4 py-2 text-sm text-status-warning-fg">
           Execution evidence confirmation does not constitute formal acceptance, invoice approval, or commercial release.
         </div>
 
         {/* View toggle */}
-        <div className="flex gap-1 bg-cream/50 rounded p-0.5 w-fit">
+        <div className="flex gap-1 bg-bg-inset/50 rounded p-0.5 w-fit">
           {VIEWS.map((v) => (
             <button
               key={v.key}
               onClick={() => setView(v.key)}
-              className={`px-3 py-1.5 text-xs rounded transition-colors ${view === v.key ? "bg-white text-ink shadow-sm font-medium" : "text-gray-500 hover:text-ink"}`}
+              className={`px-3 py-1.5 text-xs rounded transition-colors ${view === v.key ? "bg-white text-text-primary shadow-sm font-medium" : "text-text-tertiary hover:text-text-primary"}`}
             >
               {v.label}
-              {v.key === "queue" && <span className="ml-1 text-gray-400">({queueItems.length})</span>}
-              {v.key === "accepted" && <span className="ml-1 text-gray-400">({acceptedItems.length})</span>}
-              {v.key === "punch" && <span className="ml-1 text-gray-400">({punchItems.length})</span>}
+              {v.key === "queue" && <span className="ml-1 text-text-quaternary">({queueItems.length})</span>}
+              {v.key === "accepted" && <span className="ml-1 text-text-quaternary">({acceptedItems.length})</span>}
+              {v.key === "punch" && <span className="ml-1 text-text-quaternary">({punchItems.length})</span>}
             </button>
           ))}
         </div>
@@ -219,38 +219,38 @@ export default function ExecutionPage() {
           <div className="card overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-card-border bg-cream/50">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Contractor</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Package</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Description</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Reviewer</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Action</th>
+                <tr className="border-b border-border bg-bg-inset/50">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Date</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Contractor</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Package</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Description</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Reviewer</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {submissions.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No execution submissions yet.</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-text-quaternary">No execution submissions yet.</td></tr>
                 ) : (
                   submissions.map((s) => (
-                    <tr key={s.id} className="border-b border-card-border/40 hover:bg-cream/30">
+                    <tr key={s.id} className="border-b border-border/40 hover:bg-bg-inset/30">
                       <td className="px-4 py-3 text-xs">{new Date(s.submissionDate).toLocaleDateString()}</td>
                       <td className="px-4 py-3 text-xs">{s.contractor || "—"}</td>
                       <td className="px-4 py-3 text-xs">{s.packageName || "—"}</td>
                       <td className="px-4 py-3 text-xs max-w-[200px] truncate">{s.title}</td>
                       <td className="px-4 py-3">
                         {s.reviewOutcome ? (
-                          <span className={`text-[10px] px-2 py-0.5 rounded ${OUTCOME_STYLE[s.reviewOutcome] || "bg-gray-100"}`}>
+                          <span className={`text-[10px] px-2 py-0.5 rounded ${OUTCOME_STYLE[s.reviewOutcome] || "bg-bg-inset"}`}>
                             {s.reviewOutcome.replace(/_/g, " ")}
                           </span>
                         ) : (
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-600">{s.status.replace(/_/g, " ")}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-status-info-light text-status-info-fg">{s.status.replace(/_/g, " ")}</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-xs">{s.reviewerName || "—"}</td>
                       <td className="px-4 py-3">
-                        <button onClick={() => setSelected(s)} className="text-xs text-bronze hover:underline">View</button>
+                        <button onClick={() => setSelected(s)} className="text-xs text-brand-orange hover:underline">View</button>
                       </td>
                     </tr>
                   ))
@@ -265,34 +265,34 @@ export default function ExecutionPage() {
           <div className="card overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-card-border bg-cream/50">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Title</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Package</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Contractor</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Submitted</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Due</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Action</th>
+                <tr className="border-b border-border bg-bg-inset/50">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Title</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Package</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Contractor</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Submitted</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Due</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {queueItems.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No items in review queue.</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-text-quaternary">No items in review queue.</td></tr>
                 ) : (
                   queueItems.map((s) => (
-                    <tr key={s.id} className="border-b border-card-border/40 hover:bg-cream/30">
+                    <tr key={s.id} className="border-b border-border/40 hover:bg-bg-inset/30">
                       <td className="px-4 py-3 text-xs font-medium">{s.title}</td>
                       <td className="px-4 py-3 text-xs">{s.packageName || "—"}</td>
                       <td className="px-4 py-3 text-xs">{s.contractor || "—"}</td>
                       <td className="px-4 py-3 text-xs">{new Date(s.submissionDate).toLocaleDateString()}</td>
                       <td className="px-4 py-3 text-xs">
                         {s.reviewDueDate ? (
-                          <span className={new Date(s.reviewDueDate) < new Date() ? "text-[#B04A3A] font-semibold" : ""}>
+                          <span className={new Date(s.reviewDueDate) < new Date() ? "text-status-reject font-semibold" : ""}>
                             {new Date(s.reviewDueDate).toLocaleDateString()}
                           </span>
                         ) : "—"}
                       </td>
                       <td className="px-4 py-3">
-                        <button onClick={() => setSelected(s)} className="text-xs text-bronze hover:underline">Review</button>
+                        <button onClick={() => setSelected(s)} className="text-xs text-brand-orange hover:underline">Review</button>
                       </td>
                     </tr>
                   ))
@@ -307,23 +307,23 @@ export default function ExecutionPage() {
           <div className="card overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-card-border bg-cream/50">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Title</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Package</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Outcome</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Reviewed</th>
+                <tr className="border-b border-border bg-bg-inset/50">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Title</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Package</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Outcome</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Reviewed</th>
                 </tr>
               </thead>
               <tbody>
                 {acceptedItems.length === 0 ? (
-                  <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">No accepted items yet.</td></tr>
+                  <tr><td colSpan={4} className="px-4 py-8 text-center text-text-quaternary">No accepted items yet.</td></tr>
                 ) : (
                   acceptedItems.map((s) => (
-                    <tr key={s.id} className="border-b border-card-border/40">
+                    <tr key={s.id} className="border-b border-border/40">
                       <td className="px-4 py-3 text-xs font-medium">{s.title}</td>
                       <td className="px-4 py-3 text-xs">{s.packageName || "—"}</td>
                       <td className="px-4 py-3">
-                        <span className={`text-[10px] px-2 py-0.5 rounded ${OUTCOME_STYLE[s.reviewOutcome || ""] || "bg-gray-100"}`}>
+                        <span className={`text-[10px] px-2 py-0.5 rounded ${OUTCOME_STYLE[s.reviewOutcome || ""] || "bg-bg-inset"}`}>
                           {(s.reviewOutcome || "").replace(/_/g, " ")}
                         </span>
                       </td>
@@ -340,32 +340,32 @@ export default function ExecutionPage() {
         {view === "punch" && (
           <div className="space-y-3">
             <div className="flex justify-end">
-              <button onClick={() => setShowAddPunch(true)} className="text-xs text-bronze hover:underline">+ Add punch item</button>
+              <button onClick={() => setShowAddPunch(true)} className="text-xs text-brand-orange hover:underline">+ Add punch item</button>
             </div>
             <div className="card overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-card-border bg-cream/50">
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Item</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Package</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Contractor</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Target</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Owner</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Action</th>
+                  <tr className="border-b border-border bg-bg-inset/50">
+                    <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Item</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Package</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Contractor</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Status</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Target</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Owner</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {punchItems.length === 0 ? (
-                    <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No punch list items.</td></tr>
+                    <tr><td colSpan={7} className="px-4 py-8 text-center text-text-quaternary">No punch list items.</td></tr>
                   ) : (
                     punchItems.map((p) => (
-                      <tr key={p.id} className="border-b border-card-border/40">
+                      <tr key={p.id} className="border-b border-border/40">
                         <td className="px-4 py-3 text-xs">{p.description}</td>
                         <td className="px-4 py-3 text-xs">{p.packageName || "—"}</td>
                         <td className="px-4 py-3 text-xs">{p.contractor || "—"}</td>
                         <td className="px-4 py-3">
-                          <span className={`text-[10px] px-2 py-0.5 rounded ${PUNCH_STATUS[p.status]?.cls || "bg-gray-100"}`}>
+                          <span className={`text-[10px] px-2 py-0.5 rounded ${PUNCH_STATUS[p.status]?.cls || "bg-bg-inset"}`}>
                             {PUNCH_STATUS[p.status]?.label || p.status}
                           </span>
                         </td>
@@ -373,7 +373,7 @@ export default function ExecutionPage() {
                         <td className="px-4 py-3 text-xs">{p.owner || "—"}</td>
                         <td className="px-4 py-3">
                           <select
-                            className="text-[10px] border border-card-border rounded px-1 py-0.5"
+                            className="text-[10px] border border-border rounded px-1 py-0.5"
                             value={p.status}
                             onChange={(e) => setPunchItems((prev) => prev.map((x) => x.id === p.id ? { ...x, status: e.target.value } : x))}
                           >
@@ -397,26 +397,26 @@ export default function ExecutionPage() {
             <div className="card overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-card-border bg-cream/50">
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Title</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Package</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Contractor</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Accepted</th>
-                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase">Action</th>
+                  <tr className="border-b border-border bg-bg-inset/50">
+                    <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Title</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Package</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Contractor</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Accepted</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-text-tertiary uppercase">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {invoicingItems.length === 0 ? (
-                    <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No items ready for invoicing.</td></tr>
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-text-quaternary">No items ready for invoicing.</td></tr>
                   ) : (
                     invoicingItems.map((s) => (
-                      <tr key={s.id} className="border-b border-card-border/40">
+                      <tr key={s.id} className="border-b border-border/40">
                         <td className="px-4 py-3 text-xs font-medium">{s.title}</td>
                         <td className="px-4 py-3 text-xs">{s.packageName || "—"}</td>
                         <td className="px-4 py-3 text-xs">{s.contractor || "—"}</td>
                         <td className="px-4 py-3 text-xs">{s.reviewDate ? new Date(s.reviewDate).toLocaleDateString() : "—"}</td>
                         <td className="px-4 py-3">
-                          <button className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded hover:bg-emerald-200">
+                          <button className="text-xs bg-status-emerald-bg text-status-emerald-fg px-2 py-1 rounded hover:bg-status-emerald-bg">
                             Confirm ready
                           </button>
                         </td>
@@ -426,7 +426,7 @@ export default function ExecutionPage() {
                 </tbody>
               </table>
             </div>
-            <p className="text-[10px] text-gray-400">Confirming &quot;Ready for Invoicing&quot; requires Architect Admin or Client Admin role.</p>
+            <p className="text-[10px] text-text-quaternary">Confirming &quot;Ready for Invoicing&quot; requires Architect Admin or Client Admin role.</p>
           </div>
         )}
       </div>
@@ -435,26 +435,26 @@ export default function ExecutionPage() {
       <Modal open={showNew} onClose={() => setShowNew(false)} title="New Execution Submission">
         <div className="space-y-3 text-sm">
           <div>
-            <label className="text-xs text-gray-500">Title / Description *</label>
+            <label className="text-xs text-text-tertiary">Title / Description *</label>
             <input className="input mt-1 w-full" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-500">Package / Trade</label>
+              <label className="text-xs text-text-tertiary">Package / Trade</label>
               <input className="input mt-1 w-full" value={form.packageName} onChange={(e) => setForm({ ...form, packageName: e.target.value })} />
             </div>
             <div>
-              <label className="text-xs text-gray-500">Contractor</label>
+              <label className="text-xs text-text-tertiary">Contractor</label>
               <input className="input mt-1 w-full" value={form.contractor} onChange={(e) => setForm({ ...form, contractor: e.target.value })} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-500">Reported by *</label>
+              <label className="text-xs text-text-tertiary">Reported by *</label>
               <input className="input mt-1 w-full" value={form.submittedBy} onChange={(e) => setForm({ ...form, submittedBy: e.target.value })} />
             </div>
             <div>
-              <label className="text-xs text-gray-500">Date *</label>
+              <label className="text-xs text-text-tertiary">Date *</label>
               <input type="date" className="input mt-1 w-full" value={form.submissionDate} onChange={(e) => setForm({ ...form, submissionDate: e.target.value })} />
             </div>
           </div>
@@ -471,26 +471,26 @@ export default function ExecutionPage() {
       <Modal open={showAddPunch} onClose={() => setShowAddPunch(false)} title="Add Punch Item">
         <div className="space-y-3 text-sm">
           <div>
-            <label className="text-xs text-gray-500">Description *</label>
+            <label className="text-xs text-text-tertiary">Description *</label>
             <input className="input mt-1 w-full" value={punchForm.description} onChange={(e) => setPunchForm({ ...punchForm, description: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-500">Package</label>
+              <label className="text-xs text-text-tertiary">Package</label>
               <input className="input mt-1 w-full" value={punchForm.packageName} onChange={(e) => setPunchForm({ ...punchForm, packageName: e.target.value })} />
             </div>
             <div>
-              <label className="text-xs text-gray-500">Contractor</label>
+              <label className="text-xs text-text-tertiary">Contractor</label>
               <input className="input mt-1 w-full" value={punchForm.contractor} onChange={(e) => setPunchForm({ ...punchForm, contractor: e.target.value })} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-500">Target date</label>
+              <label className="text-xs text-text-tertiary">Target date</label>
               <input type="date" className="input mt-1 w-full" value={punchForm.targetDate} onChange={(e) => setPunchForm({ ...punchForm, targetDate: e.target.value })} />
             </div>
             <div>
-              <label className="text-xs text-gray-500">Owner</label>
+              <label className="text-xs text-text-tertiary">Owner</label>
               <input className="input mt-1 w-full" value={punchForm.owner} onChange={(e) => setPunchForm({ ...punchForm, owner: e.target.value })} />
             </div>
           </div>
@@ -507,35 +507,35 @@ export default function ExecutionPage() {
           <div className="space-y-4 text-sm">
             <div className="grid grid-cols-3 gap-3 text-xs">
               <div>
-                <span className="block text-[10px] text-gray-400 uppercase">Package</span>
+                <span className="block text-[10px] text-text-quaternary uppercase">Package</span>
                 {selected.packageName || "—"}
               </div>
               <div>
-                <span className="block text-[10px] text-gray-400 uppercase">Contractor</span>
+                <span className="block text-[10px] text-text-quaternary uppercase">Contractor</span>
                 {selected.contractor || "—"}
               </div>
               <div>
-                <span className="block text-[10px] text-gray-400 uppercase">Submitted</span>
+                <span className="block text-[10px] text-text-quaternary uppercase">Submitted</span>
                 {new Date(selected.submissionDate).toLocaleDateString()}
               </div>
             </div>
 
             {/* Previous review */}
             {selected.reviewOutcome && (
-              <div className="bg-cream/50 border border-card-border rounded p-3">
-                <p className="text-[10px] text-gray-400 mb-1">Review outcome</p>
-                <span className={`text-xs px-2 py-0.5 rounded ${OUTCOME_STYLE[selected.reviewOutcome] || "bg-gray-100"}`}>
+              <div className="bg-bg-inset/50 border border-border rounded p-3">
+                <p className="text-[10px] text-text-quaternary mb-1">Review outcome</p>
+                <span className={`text-xs px-2 py-0.5 rounded ${OUTCOME_STYLE[selected.reviewOutcome] || "bg-bg-inset"}`}>
                   {selected.reviewOutcome.replace(/_/g, " ")}
                 </span>
-                {selected.reviewComment && <p className="text-xs text-gray-600 mt-1">{selected.reviewComment}</p>}
-                {selected.reviewDate && <p className="text-[10px] text-gray-400 mt-1">{new Date(selected.reviewDate).toLocaleString()}</p>}
+                {selected.reviewComment && <p className="text-xs text-text-secondary mt-1">{selected.reviewComment}</p>}
+                {selected.reviewDate && <p className="text-[10px] text-text-quaternary mt-1">{new Date(selected.reviewDate).toLocaleString()}</p>}
               </div>
             )}
 
             {/* Review form */}
             {selected.status !== "closed" && (
-              <div className="border border-card-border rounded p-3 space-y-2">
-                <label className="text-xs font-medium text-gray-500">Submit Review</label>
+              <div className="border border-border rounded p-3 space-y-2">
+                <label className="text-xs font-medium text-text-tertiary">Submit Review</label>
                 <select className="input w-full text-xs" value={outcome} onChange={(e) => setOutcome(e.target.value)}>
                   <option value="">Select outcome…</option>
                   {REVIEW_OUTCOMES.map((o) => (

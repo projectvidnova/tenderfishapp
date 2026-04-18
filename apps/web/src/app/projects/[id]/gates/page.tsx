@@ -31,9 +31,9 @@ type Gate = {
 };
 
 const STATUS_STYLES: Record<string, { label: string; cls: string }> = {
-  complete: { label: "Complete", cls: "bg-green-100 text-green-700 border-green-300" },
-  in_progress: { label: "In Progress", cls: "bg-amber-100 text-bronze border-amber-300" },
-  locked: { label: "Locked", cls: "bg-gray-100 text-gray-500 border-gray-300" },
+  complete: { label: "Complete", cls: "bg-status-success-bg text-status-success-fg border-status-success-border" },
+  in_progress: { label: "In Progress", cls: "bg-status-warning-bg text-brand-orange border-status-warning-border" },
+  locked: { label: "Locked", cls: "bg-bg-inset text-text-tertiary border-border" },
   overridden: { label: "Overridden", cls: "bg-orange-100 text-orange-700 border-orange-300" },
 };
 
@@ -96,7 +96,7 @@ export default function GatesPage() {
   if (loading) {
     return (
       <AppShell>
-        <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Loading gates…</div>
+        <div className="flex items-center justify-center h-64 text-text-quaternary text-sm">Loading gates…</div>
       </AppShell>
     );
   }
@@ -104,7 +104,7 @@ export default function GatesPage() {
   return (
     <AppShell>
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold text-ink">Gate Control</h1>
+        <h1 className="text-2xl font-semibold text-text-primary">Gate Control</h1>
 
         <div className="space-y-3">
           {gates.map((g) => {
@@ -119,30 +119,30 @@ export default function GatesPage() {
                 {/* Header */}
                 <button
                   onClick={() => setExpanded(isExpanded ? null : g.gate)}
-                  className="w-full px-5 py-4 flex items-center justify-between hover:bg-cream/30 transition-colors"
+                  className="w-full px-5 py-4 flex items-center justify-between hover:bg-bg-inset/30 transition-colors"
                 >
                   <div className="flex items-center gap-4">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${
-                      g.status === "complete" ? "border-green-500 bg-green-50" :
-                      g.status === "in_progress" ? "border-bronze bg-amber-50" :
+                      g.status === "complete" ? "border-green-500 bg-status-success-light" :
+                      g.status === "in_progress" ? "border-brand-orange bg-status-warning-light" :
                       g.status === "overridden" ? "border-orange-500 bg-orange-50" :
-                      "border-gray-300 bg-gray-50"
+                      "border-border bg-bg-bg-page"
                     }`}>
-                      <span className="font-mono text-sm font-semibold text-ink">{g.gate}</span>
+                      <span className="font-mono text-sm font-semibold text-text-primary">{g.gate}</span>
                     </div>
                     <div className="text-left">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-ink">Gate {g.gate}: {meta?.name}</span>
+                        <span className="font-medium text-text-primary">Gate {g.gate}: {meta?.name}</span>
                         <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-sm border ${style.cls}`}>
                           {style.label}{g.status === "overridden" && " *"}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-0.5">{meta?.purpose}</p>
+                      <p className="text-xs text-text-tertiary mt-0.5">{meta?.purpose}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="font-mono text-sm text-gray-500">{g.readinessPercent}%</span>
-                    <svg className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <span className="font-mono text-sm text-text-tertiary">{g.readinessPercent}%</span>
+                    <svg className={`w-4 h-4 text-text-quaternary transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </div>
@@ -150,23 +150,23 @@ export default function GatesPage() {
 
                 {/* Expanded body */}
                 {isExpanded && (
-                  <div className="px-5 pb-5 space-y-4 border-t border-card-border">
+                  <div className="px-5 pb-5 space-y-4 border-t border-border">
                     {/* Override banner */}
                     {g.overrideActive && (
-                      <div className="mt-4 bg-orange-50 border border-orange-200 rounded-card px-4 py-3 text-sm text-orange-700">
+                      <div className="mt-4 bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-sm text-orange-700">
                         Overridden on {g.overrideAt ? new Date(g.overrideAt).toLocaleDateString() : "—"} — {g.overrideReason || "No reason provided"}. All downstream consequences are in effect.
                       </div>
                     )}
 
                     {/* Readiness bar */}
                     <div className="mt-4">
-                      <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                      <div className="flex items-center justify-between text-xs text-text-tertiary mb-1">
                         <span>Readiness</span>
                         <span className="font-mono">{g.criteriaMet}/{g.criteriaCount} criteria met</span>
                       </div>
-                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-2 bg-bg-inset rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-bronze rounded-full transition-all"
+                          className="h-full bg-brand-orange rounded-full transition-all"
                           style={{ width: `${g.readinessPercent}%` }}
                         />
                       </div>
@@ -174,12 +174,12 @@ export default function GatesPage() {
 
                     {/* Criteria checklist */}
                     <div className="space-y-2">
-                      <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide">Criteria</h3>
+                      <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wide">Criteria</h3>
                       {g.criteria.map((c) => (
                         <label
                           key={c.key}
-                          className={`flex items-center gap-3 p-2.5 rounded-card border cursor-pointer transition-colors ${
-                            c.met ? "border-green-200 bg-green-50/50" : "border-card-border hover:bg-cream/30"
+                          className={`flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition-colors ${
+                            c.met ? "border-green-200 bg-status-success-light/50" : "border-border hover:bg-bg-inset/30"
                           }`}
                         >
                           <input
@@ -189,9 +189,9 @@ export default function GatesPage() {
                             disabled={g.status === "locked" || g.status === "complete"}
                             className="accent-bronze w-4 h-4"
                           />
-                          <span className={`text-sm ${c.met ? "text-green-700" : "text-ink"}`}>{c.label}</span>
+                          <span className={`text-sm ${c.met ? "text-status-success-fg" : "text-text-primary"}`}>{c.label}</span>
                           {c.autoCheck && (
-                            <span className="text-[10px] text-gray-400 ml-auto">auto</span>
+                            <span className="text-[10px] text-text-quaternary ml-auto">auto</span>
                           )}
                         </label>
                       ))}
@@ -200,10 +200,10 @@ export default function GatesPage() {
                     {/* Unlocks section */}
                     {meta?.unlocks && meta.unlocks.length > 0 && (
                       <div>
-                        <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Unlocks when complete</h3>
+                        <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-2">Unlocks when complete</h3>
                         <div className="flex flex-wrap gap-2">
                           {meta.unlocks.map((u) => (
-                            <span key={u} className="text-xs bg-warm text-gray-600 px-2 py-1 rounded-sm">{u}</span>
+                            <span key={u} className="text-xs bg-bg-inset text-text-secondary px-2 py-1 rounded-sm">{u}</span>
                           ))}
                         </div>
                       </div>
@@ -242,7 +242,7 @@ export default function GatesPage() {
           title={`Override Gate ${overrideGate}`}
         >
           <div className="space-y-4">
-            <div className="bg-orange-50 border border-orange-200 rounded-card px-4 py-3 text-sm text-orange-700">
+            <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-sm text-orange-700">
               You are overriding Gate {overrideGate}. This action is permanent and logged.
             </div>
             <div>
@@ -254,7 +254,7 @@ export default function GatesPage() {
                 onChange={(e) => setOverrideReason(e.target.value)}
                 placeholder="Explain why this gate is being overridden…"
               />
-              <span className="text-xs text-gray-400 mt-1 block">{overrideReason.length}/50 characters</span>
+              <span className="text-xs text-text-quaternary mt-1 block">{overrideReason.length}/50 characters</span>
             </div>
             <label className="flex items-start gap-3 cursor-pointer">
               <input
@@ -263,7 +263,7 @@ export default function GatesPage() {
                 onChange={(e) => setOverrideAck(e.target.checked)}
                 className="accent-bronze mt-0.5"
               />
-              <span className="text-sm text-gray-600">I confirm this override and accept responsibility for all downstream consequences.</span>
+              <span className="text-sm text-text-secondary">I confirm this override and accept responsibility for all downstream consequences.</span>
             </label>
             <div className="flex justify-end gap-3 pt-2">
               <button className="btn-secondary" onClick={() => { setOverrideGate(null); setOverrideReason(""); setOverrideAck(false); }}>Cancel</button>

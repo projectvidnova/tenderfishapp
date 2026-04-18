@@ -16,10 +16,12 @@ declare module "fastify" {
 /**
  * Clerk authentication plugin.
  * In development without Clerk keys, accepts dev tokens from /api/auth/signup|login.
- * In production, validates Clerk session tokens.
+ * In production, validates Clerk session tokens. Dev fallbacks are completely disabled.
  */
 async function clerkAuth(app: FastifyInstance) {
   app.decorateRequest("auth", null);
+
+  const isProduction = process.env.NODE_ENV === "production";
 
   app.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
     // Skip auth for health, webhooks, public and auth routes
@@ -46,8 +48,8 @@ async function clerkAuth(app: FastifyInstance) {
         } catch {
           return reply.status(401).send({ error: "Unauthorized", message: "Invalid auth token" });
         }
-      } else {
-        // Dev mode: decode the base64url dev token
+      } else if (!isProduction) {
+        // Dev mode ONLY: decode the base64url dev token
         try {
           const decoded = JSON.parse(Buffer.from(token, "base64url").toString());
           if (decoded.userId && decoded.workspaceId) {
@@ -60,13 +62,13 @@ async function clerkAuth(app: FastifyInstance) {
             return;
           }
         } catch {
-          // Token didn't decode — fall through to mock
+          // Token didn't decode — fall through
         }
       }
     }
 
-    // Dev fallback: no token and no Clerk keys → use mock auth
-    if (!clerkSecretKey && !authHeader) {
+    // Dev fallback: no token and no Clerk keys → use mock auth (NEVER in production)
+    if (!isProduction && !clerkSecretKey && !authHeader) {
       request.auth = {
         userId: "00000000-0000-0000-0000-000000000001",
         clerkId: "dev-clerk-001",

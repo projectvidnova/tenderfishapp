@@ -3,6 +3,7 @@ import { db, projects, projectFacts, phases, gates } from "@tenderfish/db";
 import { eq, and } from "drizzle-orm";
 import { GATE_DEFINITIONS, LPH_PHASES } from "@tenderfish/shared";
 import type { GateLetter, LphNumber } from "@tenderfish/shared";
+import { createProjectSchema, validateBody } from "../lib/validation";
 
 export async function projectRoutes(app: FastifyInstance) {
   // GET /api/projects — list workspace projects
@@ -29,32 +30,22 @@ export async function projectRoutes(app: FastifyInstance) {
       return reply.status(403).send({ error: "Forbidden" });
     }
 
-    const body = request.body as {
-      name: string;
-      type?: string;
-      location?: string;
-      clientName?: string;
-      procurementModel?: string;
-      targetCompletion?: string;
-      objective?: string;
-      scopeSummary?: string;
-    };
-
-    if (!body.name?.trim()) {
-      return reply.status(400).send({ error: "Project name is required" });
+    const parsed = validateBody(createProjectSchema, request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: parsed.error });
     }
+    const body = parsed.data;
 
     // Create project
     const [project] = await db
       .insert(projects)
       .values({
         workspaceId: request.auth.workspaceId,
-        name: body.name.trim(),
-        type: (body.type as typeof projects.type.enumValues[number]) || "not_sure",
+        name: body.name,
+        type: body.type,
         location: body.location,
         clientName: body.clientName,
-        procurementModel:
-          (body.procurementModel as typeof projects.procurementModel.enumValues[number]) || "unclear",
+        procurementModel: body.procurementModel,
         targetCompletion: body.targetCompletion,
         objective: body.objective,
         scopeSummary: body.scopeSummary,

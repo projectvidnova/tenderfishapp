@@ -1,41 +1,75 @@
 "use client";
 
 import Link from "next/link";
-import { Inbox, Plus, User } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Inbox, Plus, Search, Bell } from "lucide-react";
+
+function useBreadcrumb(): string {
+  const pathname = usePathname();
+  const segments = pathname.split("/").filter(Boolean);
+
+  if (segments[0] === "dashboard" || segments.length === 0) return "Dashboard";
+  if (segments[0] === "inbox") return "Inbox";
+  if (segments[0] === "settings") return "Settings";
+  if (segments[0] === "projects" && segments.length === 1) return "Projects";
+  if (segments[0] === "projects" && segments[1] === "new") return "New Project";
+  if (segments[0] === "projects" && segments.length >= 3) {
+    const sub = segments[2]?.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    return `Project / ${sub}`;
+  }
+  return segments[0].replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export function TopBar() {
+  const breadcrumb = useBreadcrumb();
+
   return (
-    <header className="fixed top-0 left-sidebar right-0 h-topbar bg-white border-b border-topbar-border flex items-center justify-between px-6 z-20">
-      {/* Left: workspace name */}
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium text-ink">My Workspace</span>
+    <header
+      className="fixed top-0 left-sidebar right-0 h-topbar border-b border-border flex items-center justify-between px-6 z-20"
+      style={{
+        background: "rgba(255,255,255,0.8)",
+        backdropFilter: "saturate(180%) blur(20px)",
+        WebkitBackdropFilter: "saturate(180%) blur(20px)",
+      }}
+    >
+      {/* Left: breadcrumb */}
+      <div className="flex items-center gap-4">
+        <span className="text-sm font-semibold text-text-primary">
+          {breadcrumb}
+        </span>
       </div>
 
-      {/* Right: actions */}
+      {/* Right: search + actions */}
       <div className="flex items-center gap-3">
-        {/* New Project button */}
-        <Link
-          href="/projects/new"
-          className="btn-primary flex items-center gap-2 text-sm"
-        >
-          <Plus size={16} />
-          New Project
-        </Link>
+        {/* Search input */}
+        <div className="flex items-center gap-2 bg-bg-inset border border-border rounded-full px-3.5 py-1.5 w-[200px] focus-within:border-brand-orange focus-within:bg-white transition-colors">
+          <Search size={15} className="text-text-tertiary flex-shrink-0" />
+          <input
+            type="text"
+            placeholder="Search..."
+            className="bg-transparent text-sm text-text-primary outline-none w-full placeholder:text-text-quaternary"
+          />
+        </div>
+
+        {/* Notifications */}
+        <button className="relative w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-bg-inset text-text-secondary hover:text-text-primary transition-all duration-150">
+          <Bell size={18} strokeWidth={1.5} />
+          <span className="absolute top-1.5 right-1.5 w-[7px] h-[7px] bg-brand-orange rounded-full border-[1.5px] border-white" />
+        </button>
 
         {/* Inbox */}
         <Link
           href="/inbox"
-          className="relative p-2 rounded-sm hover:bg-warm transition-colors"
+          className="relative w-[34px] h-[34px] flex items-center justify-center rounded-full hover:bg-bg-inset text-text-secondary hover:text-text-primary transition-all duration-150"
         >
-          <Inbox size={20} strokeWidth={1.5} className="text-gray-600" />
-          {/* Badge - shown when there are unread messages */}
-          <span className="absolute top-1 right-1 w-2 h-2 bg-health-red rounded-full" />
+          <Inbox size={18} strokeWidth={1.5} />
         </Link>
 
-        {/* User avatar */}
-        <button className="w-8 h-8 rounded-full bg-warm flex items-center justify-center hover:bg-topbar-border transition-colors">
-          <User size={16} className="text-gray-600" />
-        </button>
+        {/* New Project button */}
+        <Link href="/projects/new" className="btn btn-primary">
+          <Plus size={15} />
+          New Project
+        </Link>
       </div>
     </header>
   );

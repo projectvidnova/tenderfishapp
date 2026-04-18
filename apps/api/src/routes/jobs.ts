@@ -320,8 +320,20 @@ async function runIntakePipeline(
         clientRepresentative: factResult.facts.find((f) => f.field === "client_representative")?.value || undefined,
         objective: factResult.facts.find((f) => f.field === "scope_description")?.value || undefined,
         targetCompletion: factResult.facts.find((f) => f.field === "target_completion")?.value || undefined,
+        lifecycleState: "parsed",
       })
       .where(eq(projects.id, projectId));
+
+    // Auto-transition to needs_review if many facts are low-confidence
+    const lowConfidenceFacts = factResult.facts.filter(
+      (f) => f.data_state === "UNCLEAR" || f.data_state === "MISSING"
+    );
+    if (lowConfidenceFacts.length > factResult.facts.length * 0.4) {
+      await db
+        .update(projects)
+        .set({ lifecycleState: "needs_review" })
+        .where(eq(projects.id, projectId));
+    }
 
     // Insert extracted facts
     for (const fact of factResult.facts) {

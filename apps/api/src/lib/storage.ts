@@ -1,10 +1,12 @@
 import { Storage } from "@google-cloud/storage";
 import { randomUUID } from "crypto";
+import { getEnv } from "./env";
 
-const bucketName = process.env.GCS_BUCKET_NAME || "tenderfish-dev-files";
+const env = getEnv();
+const bucketName = env.GCS_BUCKET_NAME;
 
 const storage = new Storage({
-  projectId: process.env.GCS_PROJECT_ID,
+  projectId: env.GCS_PROJECT_ID,
 });
 
 const bucket = storage.bucket(bucketName);
@@ -75,7 +77,7 @@ export async function getSignedUrl(storagePath: string): Promise<string> {
   const [url] = await file.getSignedUrl({
     version: "v4",
     action: "read",
-    expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+    expires: Date.now() + env.SIGNED_URL_EXPIRY_MS,
   });
 
   return url;
@@ -110,4 +112,4 @@ export const ALLOWED_MIME_TYPES = new Set([
   "image/png",
 ]);
 
-export const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+export const MAX_FILE_SIZE = env.MAX_FILE_SIZE_BYTES;

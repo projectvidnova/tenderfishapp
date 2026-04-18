@@ -57,6 +57,18 @@ export const projectStatusEnum = pgEnum("project_status", [
   "archived",
 ]);
 
+export const projectLifecycleStateEnum = pgEnum("project_lifecycle_state", [
+  "input_received",
+  "parsed",
+  "needs_review",
+  "confirmed",
+  "structure_approved",
+  "cost_ready",
+  "detail_ready",
+  "tender_ready",
+  "released_for_tender",
+]);
+
 export const procurementModelEnum = pgEnum("procurement_model", [
   "general_contractor",
   "single_trades",
@@ -203,6 +215,10 @@ export const inboxStatusEnum = pgEnum("inbox_status", [
   "unreviewed",
   "assigned",
   "archived",
+  "auto_classified",
+  "low_confidence",
+  "needs_role_confirmation",
+  "needs_project_assignment",
 ]);
 
 // ─── Tables ────────────────────────────────────────────────────
@@ -244,6 +260,7 @@ export const projects = pgTable("projects", {
   name: varchar("name", { length: 500 }).notNull(),
   type: projectTypeEnum("type").notNull().default("not_sure"),
   status: projectStatusEnum("status").notNull().default("active"),
+  lifecycleState: projectLifecycleStateEnum("lifecycle_state").notNull().default("input_received"),
   procurementModel: procurementModelEnum("procurement_model").notNull().default("unclear"),
   targetCompletion: date("target_completion"),
   healthScore: healthScoreEnum("health_score").notNull().default("green"),
@@ -253,7 +270,7 @@ export const projects = pgTable("projects", {
   clientName: varchar("client_name", { length: 255 }),
   clientRepresentative: varchar("client_representative", { length: 255 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [index("projects_workspace_id_idx").on(t.workspaceId), index("projects_status_idx").on(t.status)]);
+}, (t) => [index("projects_workspace_id_idx").on(t.workspaceId), index("projects_status_idx").on(t.status), index("projects_lifecycle_state_idx").on(t.lifecycleState)]);
 
 export const projectFacts = pgTable("project_facts", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -404,6 +421,18 @@ export const documents = pgTable("documents", {
     .default([]),
   currentVersion: integer("current_version").notNull().default(1),
   status: documentStatusEnum("status").notNull().default("draft"),
+  isApprovedResource: boolean("is_approved_resource").notNull().default(false),
+  approvedResourceAt: timestamp("approved_resource_at", { withTimezone: true }),
+  approvedResourceBy: uuid("approved_resource_by").references(() => users.id),
+  sourceChannel: varchar("source_channel", { length: 100 }),
+  confidence: integer("confidence"), // 0-100
+  provenanceData: jsonb("provenance_data").$type<{
+    source?: string;
+    sender?: string;
+    timestamp?: string;
+    rawRef?: string;
+    transformationHistory?: string[];
+  }>(),
   createdBy: uuid("created_by").references(() => users.id),
   relatedPhaseId: uuid("related_phase_id").references(() => phases.id),
   relatedPackageId: uuid("related_package_id").references(() => tenderPackages.id),
@@ -578,6 +607,8 @@ export const inboxMessages = pgTable("inbox_messages", {
     signals: string[];
   }>(),
   status: inboxStatusEnum("status").notNull().default("unreviewed"),
+  confidence: integer("confidence"), // 0-100
+  classifiedType: varchar("classified_type", { length: 100 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("inbox_messages_workspace_id_idx").on(t.workspaceId), index("inbox_messages_status_idx").on(t.status)]);
 
@@ -675,3 +706,596 @@ export const jobs = pgTable("jobs", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ═══════════════════════════════════════════════════════════════
+// DIN 276 — COST MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
+
+export const costStageEnum = pgEnum("cost_stage", [
+  "kostenrahmen",
+  "kostenschaetzung",
+  "kostenberechnung",
+  "kostenanschlag",
+  "kostenfeststellung",
+]);
+
+export const costSnapshotStatusEnum = pgEnum("cost_snapshot_status", [
+  "draft",
+  "submitted",
+  "approved",
+  "superseded",
+]);
+
+/**
+ * Cost snapshots — captures the full cost picture at a given HOAI phase / cost stage.
+ * Each snapshot is an immutable record; new snapshots supersede old ones.
+ */
+export const costSnapshots = pgTable("cost_snapshots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  costStage: costStageEnum("cost_stage").notNull(),
+  phaseId: uuid("phase_id").references(() => phases.id),
+  snapshotDate: date("snapshot_date").notNull(),
+  totalGross: integer("total_gross").notNull().default(0), // cents
+  totalNet: integer("total_net").notNull().default(0), // cents
+  vatRate: integer("vat_rate").notNull().default(1900), // basis points (19% = 1900)
+  currency: varchar("currency", { length: 3 }).notNull().default("EUR"),
+  notes: text("notes"),
+  status: costSnapshotStatusEnum("status").notNull().default("draft"),
+  approvedBy: uuid("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("cost_snapshots_project_id_idx").on(t.projectId), index("cost_snapshots_stage_idx").on(t.costStage)]);
+
+/**
+ * Cost line items — DIN 276 cost group entries within a snapshot.
+ * Each line maps to a DIN 276 Kostengruppe at level 1, 2, or 3.
+ */
+export const costLineItems = pgTable("cost_line_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  snapshotId: uuid("snapshot_id")
+    .notNull()
+    .references(() => costSnapshots.id, { onDelete: "cascade" }),
+  costGroupCode: varchar("cost_group_code", { length: 10 }).notNull(), // DIN 276 code, e.g. "300", "330", "331"
+  costGroupLevel: integer("cost_group_level").notNull(), // 1, 2, or 3
+  description: text("description"),
+  amountNet: integer("amount_net").notNull().default(0), // cents
+  amountGross: integer("amount_gross").notNull().default(0), // cents
+  quantity: integer("quantity"), // optional — for detailed items
+  unit: varchar("unit", { length: 50 }), // m², m³, Stk, psch, etc.
+  unitPrice: integer("unit_price"), // cents per unit
+  source: varchar("source", { length: 255 }), // e.g. "tender_return", "estimate", "actual_invoice"
+  dataState: dataStateEnum("data_state").notNull().default("DERIVED"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("cost_line_items_snapshot_id_idx").on(t.snapshotId), index("cost_line_items_cost_group_idx").on(t.costGroupCode)]);
+
+/**
+ * Cost benchmarks — reference values for cost estimation per KG and project type.
+ * Used by AI pipeline to generate Kostenrahmen / Kostenschätzung.
+ */
+export const costBenchmarks = pgTable("cost_benchmarks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .notNull()
+    .references(() => workspaces.id, { onDelete: "cascade" }),
+  costGroupCode: varchar("cost_group_code", { length: 10 }).notNull(),
+  projectType: projectTypeEnum("project_type"),
+  region: varchar("region", { length: 255 }),
+  pricePerUnit: integer("price_per_unit").notNull(), // cents
+  unit: varchar("unit", { length: 50 }).notNull(), // e.g. "€/m² BGF"
+  referenceYear: integer("reference_year").notNull(),
+  source: varchar("source", { length: 255 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ═══════════════════════════════════════════════════════════════
+// HOAI — FEE CALCULATION
+// ═══════════════════════════════════════════════════════════════
+
+export const hoaiFeeZoneEnum = pgEnum("hoai_fee_zone", ["I", "II", "III", "IV", "V"]);
+
+export const hoaiServiceTypeEnum = pgEnum("hoai_service_type", [
+  "gebaeudeplanung",
+  "freianlagenplanung",
+  "tragwerksplanung",
+  "technische_ausruestung",
+]);
+
+/**
+ * HOAI fee calculations — stores the fee calculation for a project or discipline.
+ * Based on HOAI 2021 orientation values.
+ */
+export const hoaiFeeCalculations = pgTable("hoai_fee_calculations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  serviceType: hoaiServiceTypeEnum("service_type").notNull(),
+  feeZone: hoaiFeeZoneEnum("fee_zone").notNull(),
+  anrechenbareKosten: integer("anrechenbare_kosten").notNull(), // cents — eligible costs (KG 300+400 typically)
+  feePositionInZone: integer("fee_position_in_zone").notNull().default(50), // 0=min, 100=max within zone (percentage)
+  baseFee: integer("base_fee").notNull().default(0), // cents — calculated total base fee
+  agreedPercentage: integer("agreed_percentage"), // basis points — optional agreed % if deviating from table
+  commissionedPhases: jsonb("commissioned_phases").$type<number[]>().notNull().default([1, 2, 3, 4, 5, 6, 7, 8, 9]),
+  phaseFees: jsonb("phase_fees").$type<{ lph: number; percentage: number; fee: number }[]>().notNull().default([]),
+  modifiers: jsonb("modifiers").$type<{ key: string; label: string; factor: number }[]>().default([]),
+  totalFee: integer("total_fee").notNull().default(0), // cents
+  notes: text("notes"),
+  calculatedAt: timestamp("calculated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdBy: uuid("created_by").references(() => users.id),
+});
+
+// ═══════════════════════════════════════════════════════════════
+// VOB — CONTRACT MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
+
+export const vobTenderingProcedureEnum = pgEnum("vob_tendering_procedure", [
+  "oeffentliche_ausschreibung",
+  "beschraenkte_ausschreibung",
+  "beschraenkte_ausschreibung_mit_tw",
+  "verhandlungsvergabe",
+  "verhandlungsvergabe_mit_tw",
+  "wettbewerblicher_dialog",
+  "direktauftrag",
+]);
+
+export const vobContractTypeEnum = pgEnum("vob_contract_type", [
+  "vob_b",
+  "bgb_werkvertrag",
+]);
+
+export const contractStatusEnum = pgEnum("contract_status", [
+  "draft",
+  "tendered",
+  "awarded",
+  "active",
+  "in_warranty",
+  "closed",
+  "terminated",
+]);
+
+/**
+ * VOB-compliant construction contracts — tracks each trade/package contract.
+ */
+export const contracts = pgTable("contracts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  packageId: uuid("package_id").references(() => tenderPackages.id),
+  contractNumber: varchar("contract_number", { length: 100 }),
+  title: varchar("title", { length: 500 }).notNull(),
+  contractType: vobContractTypeEnum("contract_type").notNull().default("vob_b"),
+  tenderingProcedure: vobTenderingProcedureEnum("tendering_procedure"),
+  contractorCompany: varchar("contractor_company", { length: 255 }).notNull(),
+  contractorContact: varchar("contractor_contact", { length: 255 }),
+  contractorEmail: varchar("contractor_email", { length: 255 }),
+  awardDate: date("award_date"),
+  commencementDate: date("commencement_date"),
+  completionDate: date("completion_date"),
+  abnahmeDate: date("abnahme_date"), // formal acceptance date
+  warrantyEndDate: date("warranty_end_date"),
+  warrantyPeriodMonths: integer("warranty_period_months").notNull().default(48), // 4 years VOB/B default
+  contractValueNet: integer("contract_value_net").notNull().default(0), // cents
+  contractValueGross: integer("contract_value_gross").notNull().default(0), // cents
+  retentionPercentage: integer("retention_percentage").notNull().default(500), // basis points (5% = 500)
+  retentionAmount: integer("retention_amount").notNull().default(0), // cents
+  status: contractStatusEnum("status").notNull().default("draft"),
+  vobCReference: varchar("vob_c_reference", { length: 100 }), // e.g. "DIN 18331" for concrete
+  costGroupCode: varchar("cost_group_code", { length: 10 }), // DIN 276 mapping
+  notes: text("notes"),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("contracts_project_id_idx").on(t.projectId), index("contracts_status_idx").on(t.status)]);
+
+/**
+ * VOB/B Nachträge (variation/change orders)
+ */
+export const nachtragStatusEnum = pgEnum("nachtrag_status", [
+  "draft",
+  "submitted",
+  "under_review",
+  "approved",
+  "rejected",
+  "partially_approved",
+]);
+
+export const nachtragTypeEnum = pgEnum("nachtrag_type", [
+  "mengenabweichung",
+  "geaenderte_leistung",
+  "zusaetzliche_leistung",
+  "selbst_uebernahme",
+  "behinderung",
+  "stundenlohn",
+]);
+
+export const nachtraege = pgTable("nachtraege", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  contractId: uuid("contract_id")
+    .notNull()
+    .references(() => contracts.id, { onDelete: "cascade" }),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  nachtragNumber: varchar("nachtrag_number", { length: 50 }).notNull(), // e.g. "NT-001"
+  title: varchar("title", { length: 500 }).notNull(),
+  type: nachtragTypeEnum("type").notNull(),
+  vobReference: varchar("vob_reference", { length: 100 }), // e.g. "§2 Abs. 5 VOB/B"
+  description: text("description").notNull(),
+  requestedAmountNet: integer("requested_amount_net").notNull().default(0), // cents
+  approvedAmountNet: integer("approved_amount_net"), // cents — set after review
+  scheduleImpactDays: integer("schedule_impact_days").notNull().default(0),
+  submittedBy: varchar("submitted_by", { length: 255 }).notNull(),
+  submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().defaultNow(),
+  reviewedBy: uuid("reviewed_by").references(() => users.id),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  status: nachtragStatusEnum("status").notNull().default("draft"),
+  supportingDocuments: jsonb("supporting_documents").$type<string[]>().default([]),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("nachtraege_contract_id_idx").on(t.contractId), index("nachtraege_project_id_idx").on(t.projectId), index("nachtraege_status_idx").on(t.status)]);
+
+/**
+ * VOB/B payment tracking — Abschlagszahlungen, Schlussrechnung
+ */
+export const paymentTypeEnum = pgEnum("payment_type", [
+  "abschlagszahlung",
+  "teilschlussrechnung",
+  "schlussrechnung",
+  "sicherheitseinbehalt",
+]);
+
+export const paymentStatusEnum = pgEnum("payment_status", [
+  "submitted",
+  "under_review",
+  "approved",
+  "paid",
+  "disputed",
+]);
+
+export const payments = pgTable("payments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  contractId: uuid("contract_id")
+    .notNull()
+    .references(() => contracts.id, { onDelete: "cascade" }),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  paymentNumber: varchar("payment_number", { length: 50 }).notNull(),
+  type: paymentTypeEnum("type").notNull(),
+  invoiceDate: date("invoice_date").notNull(),
+  invoiceRef: varchar("invoice_ref", { length: 255 }),
+  amountNet: integer("amount_net").notNull(), // cents
+  amountGross: integer("amount_gross").notNull(), // cents
+  vatRate: integer("vat_rate").notNull().default(1900), // basis points
+  cumulativeNet: integer("cumulative_net").notNull().default(0), // running total
+  retentionDeducted: integer("retention_deducted").notNull().default(0), // cents
+  dueDate: date("due_date"),
+  paidDate: date("paid_date"),
+  status: paymentStatusEnum("status").notNull().default("submitted"),
+  reviewedBy: uuid("reviewed_by").references(() => users.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("payments_contract_id_idx").on(t.contractId), index("payments_project_id_idx").on(t.projectId)]);
+
+/**
+ * VOB/B Abnahme (formal acceptance) records
+ */
+export const abnahmeTypeEnum = pgEnum("abnahme_type", [
+  "foermliche_abnahme",    // Formal acceptance §12 Abs. 4 VOB/B
+  "stillschweigende_abnahme", // Implied acceptance §12 Abs. 5 VOB/B
+  "teilabnahme",           // Partial acceptance §12 Abs. 2 VOB/B
+  "fiktive_abnahme",       // Deemed acceptance after 12 working days
+]);
+
+export const abnahmeStatusEnum = pgEnum("abnahme_status", [
+  "scheduled",
+  "completed_without_defects",
+  "completed_with_defects",
+  "refused",
+]);
+
+export const abnahmen = pgTable("abnahmen", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  contractId: uuid("contract_id")
+    .notNull()
+    .references(() => contracts.id, { onDelete: "cascade" }),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  type: abnahmeTypeEnum("type").notNull(),
+  scheduledDate: date("scheduled_date").notNull(),
+  actualDate: date("actual_date"),
+  status: abnahmeStatusEnum("status").notNull().default("scheduled"),
+  attendees: jsonb("attendees").$type<{ name: string; role: string; company: string }[]>().default([]),
+  defects: jsonb("defects").$type<{ description: string; severity: string; deadline: string; resolved: boolean }[]>().default([]),
+  warrantyStartDate: date("warranty_start_date"), // Gewährleistung starts at Abnahme
+  protocolRef: text("protocol_ref"), // reference to signed acceptance protocol document
+  notes: text("notes"),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("abnahmen_contract_id_idx").on(t.contractId), index("abnahmen_project_id_idx").on(t.projectId)]);
+
+// ═══════════════════════════════════════════════════════════════
+// GAEB — BILL OF QUANTITIES (Leistungsverzeichnis)
+// ═══════════════════════════════════════════════════════════════
+
+export const gaebExchangePhaseEnum = pgEnum("gaeb_exchange_phase", [
+  "gaeb_81",
+  "gaeb_82",
+  "gaeb_83",
+  "gaeb_84",
+  "gaeb_85",
+  "gaeb_86",
+  "gaeb_87",
+  "gaeb_89",
+  "gaeb_90",
+  "gaeb_da11",
+]);
+
+export const gaebPositionTypeEnum = pgEnum("gaeb_position_type", [
+  "normalposition",
+  "alternativposition",
+  "eventuaposition",
+  "bedarfsposition",
+  "grundposition",
+  "wahlposition",
+  "zuschlagsposition",
+  "pauschalposition",
+  "stundenlohnarbeiten",
+]);
+
+/**
+ * Leistungsverzeichnisse (Bills of Quantities) — GAEB-structured BoQ documents.
+ */
+export const leistungsverzeichnisse = pgTable("leistungsverzeichnisse", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  packageId: uuid("package_id").references(() => tenderPackages.id),
+  contractId: uuid("contract_id").references(() => contracts.id),
+  title: varchar("title", { length: 500 }).notNull(),
+  lvNumber: varchar("lv_number", { length: 100 }), // e.g. "LV-01 Rohbau"
+  exchangePhase: gaebExchangePhaseEnum("exchange_phase").notNull().default("gaeb_83"),
+  costGroupCode: varchar("cost_group_code", { length: 10 }), // DIN 276 mapping
+  vobCReference: varchar("vob_c_reference", { length: 100 }), // e.g. "DIN 18331"
+  totalNet: integer("total_net").notNull().default(0), // cents
+  totalGross: integer("total_gross").notNull().default(0), // cents
+  positionCount: integer("position_count").notNull().default(0),
+  gaebFileRef: text("gaeb_file_ref"), // GCS path to original GAEB file
+  gaebVersion: varchar("gaeb_version", { length: 20 }), // e.g. "GAEB XML 3.3"
+  notes: text("notes"),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("lv_project_id_idx").on(t.projectId)]);
+
+/**
+ * LV Positionen (BoQ line items) — individual positions within a Leistungsverzeichnis.
+ */
+export const lvPositionen = pgTable("lv_positionen", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  lvId: uuid("lv_id")
+    .notNull()
+    .references(() => leistungsverzeichnisse.id, { onDelete: "cascade" }),
+  ordnungszahl: varchar("ordnungszahl", { length: 50 }).notNull(), // position number, e.g. "01.02.003"
+  titel: varchar("titel", { length: 500 }), // section/title grouping
+  titelLevel: integer("titel_level").notNull().default(0), // 0 = position, 1+ = title nesting level
+  positionType: gaebPositionTypeEnum("position_type").notNull().default("normalposition"),
+  kurztext: varchar("kurztext", { length: 500 }).notNull(), // short description
+  langtext: text("langtext"), // full specification text
+  menge: integer("menge").notNull().default(0), // quantity (in minor units × 1000 for precision)
+  einheit: varchar("einheit", { length: 50 }).notNull(), // unit: m², m³, Stk, kg, psch, etc.
+  einheitspreis: integer("einheitspreis").notNull().default(0), // unit price in cents
+  gesamtpreis: integer("gesamtpreis").notNull().default(0), // total price = menge × einheitspreis (in cents)
+  costGroupCode: varchar("cost_group_code", { length: 10 }), // DIN 276 mapping at position level
+  linkedPositionId: uuid("linked_position_id"), // for alternative/optional links
+  notes: text("notes"),
+}, (t) => [index("lv_positionen_lv_id_idx").on(t.lvId)]);
+
+/**
+ * GAEB file exchange log — tracks import/export of GAEB files.
+ */
+export const gaebExchangeLog = pgTable("gaeb_exchange_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  lvId: uuid("lv_id").references(() => leistungsverzeichnisse.id),
+  direction: varchar("direction", { length: 10 }).notNull(), // "import" | "export"
+  exchangePhase: gaebExchangePhaseEnum("exchange_phase").notNull(),
+  fileName: varchar("file_name", { length: 500 }).notNull(),
+  fileRef: text("file_ref").notNull(), // GCS storage path
+  fileSize: integer("file_size").notNull(),
+  gaebVersion: varchar("gaeb_version", { length: 20 }),
+  positionsImported: integer("positions_imported"),
+  errorLog: text("error_log"),
+  importedBy: uuid("imported_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ═══════════════════════════════════════════════════════════════
+// REGULATORY COMPLIANCE TRACKING
+// ═══════════════════════════════════════════════════════════════
+
+export const complianceAreaEnum = pgEnum("compliance_area", [
+  "bauordnung",
+  "brandschutz",
+  "geg_energy",
+  "sigeko",
+  "denkmalschutz",
+  "umweltschutz",
+  "schallschutz",
+  "barrierefreiheit",
+]);
+
+export const complianceStatusEnum = pgEnum("compliance_status", [
+  "not_applicable",
+  "not_started",
+  "in_preparation",
+  "submitted",
+  "approved",
+  "conditionally_approved",
+  "rejected",
+  "expired",
+]);
+
+export const regulatorySubmissions = pgTable("regulatory_submissions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  area: complianceAreaEnum("area").notNull(),
+  submissionType: varchar("submission_type", { length: 255 }).notNull(), // e.g. "bauantrag", "brandschutzkonzept"
+  title: varchar("title", { length: 500 }).notNull(),
+  authority: varchar("authority", { length: 255 }), // e.g. "Bauaufsichtsbehörde Berlin-Mitte"
+  referenceNumber: varchar("reference_number", { length: 255 }), // authority file number
+  submittedDate: date("submitted_date"),
+  expectedResponseDate: date("expected_response_date"),
+  approvedDate: date("approved_date"),
+  expiryDate: date("expiry_date"),
+  status: complianceStatusEnum("status").notNull().default("not_started"),
+  conditions: jsonb("conditions").$type<{ condition: string; met: boolean; deadline?: string }[]>().default([]),
+  relatedPhaseId: uuid("related_phase_id").references(() => phases.id),
+  documentRef: text("document_ref"), // GCS path
+  responsibleUserId: uuid("responsible_user_id").references(() => users.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("regulatory_submissions_project_id_idx").on(t.projectId), index("regulatory_submissions_area_idx").on(t.area), index("regulatory_submissions_status_idx").on(t.status)]);
+
+// ═══════════════════════════════════════════════════════════════
+// STRUCTURED PROJECT DESCRIPTION (SPD)
+// ═══════════════════════════════════════════════════════════════
+
+export const spdStatusEnum = pgEnum("spd_status", [
+  "draft",
+  "submitted",
+  "approved",
+  "revision_requested",
+]);
+
+/**
+ * Structured Project Description — first-class entity with 13 mandatory fields.
+ * Derived from project facts, approved by architect/lead.
+ */
+export const projectDescriptions = pgTable("project_descriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  version: integer("version").notNull().default(1),
+  status: spdStatusEnum("status").notNull().default("draft"),
+  // ─── 13 Mandatory Fields ───────────────────────────────
+  projectName: varchar("project_name", { length: 500 }),
+  projectGoal: text("project_goal"),
+  projectType: varchar("project_type", { length: 100 }),
+  location: text("location"),
+  participants: jsonb("participants").$type<{ name: string; role: string; company?: string; email?: string }[]>().default([]),
+  scopeOfWork: text("scope_of_work"),
+  spatialScope: text("spatial_scope"),
+  relevantApprovedDocuments: jsonb("relevant_approved_documents").$type<string[]>().default([]), // document IDs
+  assumptions: jsonb("assumptions").$type<string[]>().default([]),
+  openPoints: jsonb("open_points").$type<{ point: string; priority: string; assignedTo?: string }[]>().default([]),
+  currentProjectPhase: varchar("current_project_phase", { length: 100 }),
+  approvedProjectResources: jsonb("approved_project_resources").$type<string[]>().default([]), // document IDs
+  currentDefinedProjectStatus: text("current_defined_project_status"),
+  // ─── Approval ──────────────────────────────────────────
+  approvedBy: uuid("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("project_descriptions_project_id_idx").on(t.projectId)]);
+
+// ═══════════════════════════════════════════════════════════════
+// TENDER RELEASE STATE
+// ═══════════════════════════════════════════════════════════════
+
+export const tenderReleaseStatusEnum = pgEnum("tender_release_status", [
+  "pending_review",
+  "ready",
+  "released",
+  "recalled",
+]);
+
+/**
+ * Tender Release State — explicit end-state object for formal tender release.
+ * Cannot exist without approval prerequisites being met.
+ */
+export const tenderReleases = pgTable("tender_releases", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  status: tenderReleaseStatusEnum("status").notNull().default("pending_review"),
+  prerequisites: jsonb("prerequisites")
+    .$type<{ key: string; label: string; met: boolean; category: string }[]>()
+    .notNull()
+    .default([]),
+  releasedBy: uuid("released_by").references(() => users.id),
+  releasedAt: timestamp("released_at", { withTimezone: true }),
+  recalledBy: uuid("recalled_by").references(() => users.id),
+  recalledAt: timestamp("recalled_at", { withTimezone: true }),
+  recallReason: text("recall_reason"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("tender_releases_project_id_idx").on(t.projectId)]);
+
+// ═══════════════════════════════════════════════════════════════
+// PARTICIPANTS
+// ═══════════════════════════════════════════════════════════════
+
+export const participantAccessLevelEnum = pgEnum("participant_access_level", [
+  "external_source",
+  "lightweight",
+  "full_account",
+]);
+
+/**
+ * Participants — unified entity for all project contributors.
+ * Supports role inference, confirmation, and access level management.
+ */
+export const participants = pgTable("participants", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  company: varchar("company", { length: 255 }),
+  role: projectRoleEnum("role").notNull().default("team_member"),
+  accessLevel: participantAccessLevelEnum("access_level").notNull().default("external_source"),
+  roleConfirmed: boolean("role_confirmed").notNull().default(false),
+  inferredFrom: jsonb("inferred_from").$type<{
+    source: string;
+    signals: string[];
+    confidence: number;
+  }>(),
+  userId: uuid("user_id").references(() => users.id),
+  confirmedBy: uuid("confirmed_by").references(() => users.id),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("participants_project_id_idx").on(t.projectId), index("participants_email_idx").on(t.email)]);
+
+// ═══════════════════════════════════════════════════════════════
+// PROJECT VERSIONS
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Project Versions — frozen snapshots of project state.
+ */
+export const projectVersions = pgTable("project_versions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  versionNumber: integer("version_number").notNull(),
+  label: varchar("label", { length: 255 }).notNull(),
+  snapshotData: jsonb("snapshot_data").$type<Record<string, unknown>>().notNull(),
+  isCurrent: boolean("is_current").notNull().default(false),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("project_versions_project_id_idx").on(t.projectId)]);

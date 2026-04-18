@@ -21,10 +21,10 @@ const CAUSE_CATEGORIES = [
 ];
 
 const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
-  open: { label: "Open", cls: "bg-red-100 text-[#B04A3A] border-red-300" },
-  under_review: { label: "Under Review", cls: "bg-amber-100 text-amber-700 border-amber-300" },
-  resolved: { label: "Resolved", cls: "bg-green-100 text-[#3F7A5A] border-green-300" },
-  escalated: { label: "Escalated", cls: "bg-purple-100 text-purple-700 border-purple-300" },
+  open: { label: "Open", cls: "bg-status-danger-bg text-status-reject border-status-danger-border" },
+  under_review: { label: "Under Review", cls: "bg-status-warning-bg text-status-warning-fg border-status-warning-border" },
+  resolved: { label: "Resolved", cls: "bg-status-success-bg text-status-approve border-status-success-border" },
+  escalated: { label: "Escalated", cls: "bg-status-purple-bg text-status-purple-fg border-status-purple-border" },
 };
 
 type DelayEvent = {
@@ -98,7 +98,7 @@ export default function DelaysPage() {
   if (loading) {
     return (
       <AppShell>
-        <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Loading delays…</div>
+        <div className="flex items-center justify-center h-64 text-text-quaternary text-sm">Loading delays…</div>
       </AppShell>
     );
   }
@@ -109,12 +109,12 @@ export default function DelaysPage() {
     <AppShell>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-ink">Delay Log</h1>
+          <h1 className="text-2xl font-semibold text-text-primary">Delay Log</h1>
           <button className="btn-primary text-sm" onClick={() => setShowAdd(true)}>+ Log delay event</button>
         </div>
 
         {/* Warning banner */}
-        <div className="bg-amber-50 border border-amber-200 rounded-card px-4 py-3 text-sm text-amber-700">
+        <div className="bg-status-warning-light border border-status-warning-border rounded-xl px-4 py-3 text-sm text-status-warning-fg">
           This module is a structured evidence and consequence tracker. It does not determine or record legal liability.
         </div>
 
@@ -122,21 +122,21 @@ export default function DelaysPage() {
         {summary.totalEvents > 0 && (
           <div className="grid grid-cols-4 gap-3">
             <div className="card px-4 py-3">
-              <p className="text-xs text-gray-500">Total Events</p>
-              <p className="text-2xl font-bold font-mono text-ink">{summary.totalEvents}</p>
+              <p className="text-xs text-text-tertiary">Total Events</p>
+              <p className="text-2xl font-bold font-mono text-text-primary">{summary.totalEvents}</p>
             </div>
             <div className="card px-4 py-3">
-              <p className="text-xs text-gray-500">Total Impact</p>
-              <p className="text-2xl font-bold font-mono text-ink">{summary.totalImpactDays} <span className="text-sm font-normal">days</span></p>
+              <p className="text-xs text-text-tertiary">Total Impact</p>
+              <p className="text-2xl font-bold font-mono text-text-primary">{summary.totalImpactDays} <span className="text-sm font-normal">days</span></p>
             </div>
             <div className="card px-4 py-3 col-span-2">
-              <p className="text-xs text-gray-500 mb-2">By Cause</p>
+              <p className="text-xs text-text-tertiary mb-2">By Cause</p>
               <div className="space-y-1">
                 {Object.entries(summary.byCause).map(([cause, count]) => (
                   <div key={cause} className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 w-24 truncate">{CAUSE_CATEGORIES.find((c) => c.value === cause)?.label || cause}</span>
-                    <div className="flex-1 h-3 bg-gray-100 rounded-sm overflow-hidden">
-                      <div className="h-full bg-bronze/60 rounded-sm" style={{ width: `${(count / maxCause) * 100}%` }} />
+                    <span className="text-xs text-text-tertiary w-24 truncate">{CAUSE_CATEGORIES.find((c) => c.value === cause)?.label || cause}</span>
+                    <div className="flex-1 h-3 bg-bg-inset rounded-sm overflow-hidden">
+                      <div className="h-full bg-brand-orange/60 rounded-sm" style={{ width: `${(count / maxCause) * 100}%` }} />
                     </div>
                     <span className="text-xs font-mono w-5 text-right">{count}</span>
                   </div>
@@ -150,36 +150,36 @@ export default function DelaysPage() {
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-card-border bg-cream/30">
-                <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-24">Date</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">Description</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-28">Cause</th>
-                <th className="text-center px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-16">Impact</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-24">Owner</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-24">Status</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-16">Action</th>
+              <tr className="border-b border-border bg-bg-inset/30">
+                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-24">Date</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide">Description</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-28">Cause</th>
+                <th className="text-center px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-16">Impact</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-24">Owner</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-24">Status</th>
+                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-16">Action</th>
               </tr>
             </thead>
             <tbody>
               {delays.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No delay events logged.</td></tr>
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-text-quaternary">No delay events logged.</td></tr>
               ) : delays.map((d) => {
                 const st = STATUS_LABELS[d.status] || STATUS_LABELS.open;
                 const causeLabel = CAUSE_CATEGORIES.find((c) => c.value === d.causeCategory)?.label || d.causeCategory;
                 return (
-                  <tr key={d.id} className="border-b border-card-border last:border-0 hover:bg-cream/20">
-                    <td className="px-4 py-3 text-xs font-mono text-gray-500">{d.eventDate}</td>
-                    <td className="px-4 py-3 text-ink">{d.description}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{causeLabel}</td>
+                  <tr key={d.id} className="border-b border-border last:border-0 hover:bg-bg-inset/20">
+                    <td className="px-4 py-3 text-xs font-mono text-text-tertiary">{d.eventDate}</td>
+                    <td className="px-4 py-3 text-text-primary">{d.description}</td>
+                    <td className="px-4 py-3 text-xs text-text-tertiary">{causeLabel}</td>
                     <td className="px-4 py-3 text-center text-xs font-mono font-medium">{d.scheduleImpactDays}d</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{d.initialResponsibility || "—"}</td>
+                    <td className="px-4 py-3 text-xs text-text-tertiary">{d.initialResponsibility || "—"}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-sm border ${st.cls}`}>
                         {st.label}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <button className="text-xs text-bronze hover:text-bronze-dark font-medium" onClick={() => setShowDetail(d)}>
+                      <button className="text-xs text-brand-orange hover:text-brand-orange-dark font-medium" onClick={() => setShowDetail(d)}>
                         View
                       </button>
                     </td>
@@ -234,34 +234,34 @@ export default function DelaysPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <span className="text-gray-500 text-xs">Event Date</span>
+                  <span className="text-text-tertiary text-xs">Event Date</span>
                   <p className="font-mono">{showDetail.eventDate}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-xs">Reported By</span>
+                  <span className="text-text-tertiary text-xs">Reported By</span>
                   <p>{showDetail.reportedBy}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-xs">Cause</span>
+                  <span className="text-text-tertiary text-xs">Cause</span>
                   <p>{CAUSE_CATEGORIES.find((c) => c.value === showDetail.causeCategory)?.label || showDetail.causeCategory}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-xs">Schedule Impact</span>
+                  <span className="text-text-tertiary text-xs">Schedule Impact</span>
                   <p className="font-mono">{showDetail.scheduleImpactDays} working days</p>
                 </div>
               </div>
               <div className="text-sm">
-                <span className="text-gray-500 text-xs">Description</span>
+                <span className="text-text-tertiary text-xs">Description</span>
                 <p>{showDetail.description}</p>
               </div>
               {showDetail.initialResponsibility && (
                 <div className="text-sm">
-                  <span className="text-gray-500 text-xs">Initial Responsibility</span>
+                  <span className="text-text-tertiary text-xs">Initial Responsibility</span>
                   <p>{showDetail.initialResponsibility}</p>
                 </div>
               )}
               <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Change Status</h3>
+                <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-2">Change Status</h3>
                 <div className="flex flex-wrap gap-2">
                   {(["open", "under_review", "resolved", "escalated"] as const).filter((s) => s !== showDetail.status).map((s) => (
                     <button key={s} onClick={() => updateDelay(showDetail.id, { status: s })}

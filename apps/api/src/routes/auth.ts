@@ -3,25 +3,21 @@ import { db, users, workspaces } from "@tenderfish/db";
 import { eq } from "drizzle-orm";
 import { slugify } from "@tenderfish/shared";
 import crypto from "crypto";
+import { signupSchema, loginSchema, validateBody } from "../lib/validation";
+import { getEnv } from "../lib/env";
 
 export async function authRoutes(app: FastifyInstance) {
+  const env = getEnv();
+
   // POST /api/auth/signup — create user + workspace
-  app.post("/auth/signup", async (request: FastifyRequest, reply: FastifyReply) => {
-    const body = request.body as {
-      name: string;
-      email: string;
-      password: string;
-      company: string;
-      country?: string;
-    };
-
-    if (!body.name?.trim() || !body.email?.trim() || !body.password || !body.company?.trim()) {
-      return reply.status(400).send({ error: "All fields are required" });
+  app.post("/auth/signup", {
+    config: { rateLimit: { max: env.AUTH_RATE_LIMIT_MAX, timeWindow: env.AUTH_RATE_LIMIT_WINDOW } },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const parsed = validateBody(signupSchema, request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: parsed.error });
     }
-
-    if (body.password.length < 8) {
-      return reply.status(400).send({ error: "Password must be at least 8 characters" });
-    }
+    const body = parsed.data;
 
     // Check if email already exists
     const existingUser = await db.query.users.findFirst({
@@ -50,7 +46,7 @@ export async function authRoutes(app: FastifyInstance) {
         name: body.company.trim(),
         slug: finalSlug,
         inboxEmail: `${finalSlug}@in.tenderfish.ai`,
-        country: body.country || "Germany",
+        country: body.country || env.DEFAULT_COUNTRY,
       })
       .returning();
 
@@ -92,12 +88,14 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   // POST /api/auth/login — authenticate user
-  app.post("/auth/login", async (request: FastifyRequest, reply: FastifyReply) => {
-    const body = request.body as { email: string; password: string };
-
-    if (!body.email?.trim() || !body.password) {
-      return reply.status(400).send({ error: "Email and password are required" });
+  app.post("/auth/login", {
+    config: { rateLimit: { max: 10, timeWindow: "15 minutes" } },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const parsed = validateBody(loginSchema, request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: parsed.error });
     }
+    const body = parsed.data;
 
     // Find user by email
     const user = await db.query.users.findFirst({

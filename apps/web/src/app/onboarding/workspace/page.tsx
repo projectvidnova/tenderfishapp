@@ -115,12 +115,12 @@ export default function OnboardingWizardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-page flex items-center justify-center p-8">
+    <div className="min-h-screen bg-bg-bg-page flex items-center justify-center p-8">
       <div className="w-full max-w-2xl space-y-8">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-2xl font-semibold text-ink">Set up your workspace</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-semibold text-text-primary">Set up your workspace</h1>
+          <p className="text-sm text-text-tertiary mt-1">
             Step {step} of 3
           </p>
         </div>
@@ -131,7 +131,7 @@ export default function OnboardingWizardPage() {
             <div
               key={s}
               className={`flex-1 h-1 rounded-full transition-colors ${
-                s <= step ? "bg-bronze" : "bg-card-border"
+                s <= step ? "bg-brand-orange" : "bg-border"
               }`}
             />
           ))}
@@ -141,8 +141,8 @@ export default function OnboardingWizardPage() {
         {step === 1 && (
           <div className="card p-8 space-y-6">
             <div>
-              <h2 className="text-lg font-medium text-ink">Office profile</h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <h2 className="text-lg font-medium text-text-primary">Office profile</h2>
+              <p className="text-sm text-text-tertiary mt-1">
                 Tell us about your practice. This can be updated later in Settings.
               </p>
             </div>
@@ -222,7 +222,7 @@ export default function OnboardingWizardPage() {
                     <img
                       src={logoPreview}
                       alt="Logo preview"
-                      className="w-16 h-16 rounded-card object-cover border border-card-border"
+                      className="w-16 h-16 rounded-xl object-cover border border-border"
                     />
                     <button
                       onClick={() => {
@@ -235,8 +235,8 @@ export default function OnboardingWizardPage() {
                     </button>
                   </div>
                 ) : (
-                  <label className="w-16 h-16 rounded-card border-2 border-dashed border-card-border flex items-center justify-center cursor-pointer hover:border-bronze transition-colors">
-                    <Upload size={20} className="text-gray-400" />
+                  <label className="w-16 h-16 rounded-xl border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:border-brand-orange transition-colors">
+                    <Upload size={20} className="text-text-quaternary" />
                     <input
                       type="file"
                       accept="image/*"
@@ -245,7 +245,7 @@ export default function OnboardingWizardPage() {
                     />
                   </label>
                 )}
-                <p className="text-xs text-gray-400">Square image, PNG or JPG</p>
+                <p className="text-xs text-text-quaternary">Square image, PNG or JPG</p>
               </div>
             </div>
 
@@ -265,8 +265,8 @@ export default function OnboardingWizardPage() {
         {step === 2 && (
           <div className="card p-8 space-y-6">
             <div>
-              <h2 className="text-lg font-medium text-ink">Invite your team</h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <h2 className="text-lg font-medium text-text-primary">Invite your team</h2>
+              <p className="text-sm text-text-tertiary mt-1">
                 Add colleagues now, or skip and do this later from Settings.
               </p>
             </div>
@@ -292,7 +292,7 @@ export default function OnboardingWizardPage() {
                   {invites.length > 1 && (
                     <button
                       onClick={() => removeInviteRow(i)}
-                      className="p-2 hover:bg-warm rounded-sm transition-colors text-gray-400 hover:text-red-500"
+                      className="p-2 hover:bg-bg-inset rounded-sm transition-colors text-text-quaternary hover:text-status-danger"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -303,16 +303,16 @@ export default function OnboardingWizardPage() {
 
             <button
               onClick={addInviteRow}
-              className="flex items-center gap-2 text-sm text-bronze hover:underline"
+              className="flex items-center gap-2 text-sm text-brand-orange hover:underline"
             >
               <Plus size={14} />
               Add another
             </button>
 
-            <div className="flex items-center justify-between pt-4 border-t border-card-border">
+            <div className="flex items-center justify-between pt-4 border-t border-border">
               <button
                 onClick={() => setStep(3)}
-                className="text-sm text-gray-400 hover:text-gray-600"
+                className="text-sm text-text-quaternary hover:text-text-secondary"
               >
                 I'll do this later
               </button>
@@ -331,21 +331,21 @@ export default function OnboardingWizardPage() {
         {step === 3 && (
           <div className="card p-8 space-y-6">
             <div>
-              <h2 className="text-lg font-medium text-ink">Your workspace inbox</h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <h2 className="text-lg font-medium text-text-primary">Your workspace inbox</h2>
+              <p className="text-sm text-text-tertiary mt-1">
                 Forward project emails to this address. Tenderfish will
                 automatically read incoming emails, extract attachments, and
                 suggest project matches.
               </p>
             </div>
 
-            <div className="bg-warm rounded-card p-4 flex items-center justify-between">
-              <code className="text-sm font-mono text-ink">
+            <div className="bg-bg-inset rounded-xl p-4 flex items-center justify-between">
+              <code className="text-sm font-mono text-text-primary">
                 {inboxEmail || "your-office@in.tenderfish.ai"}
               </code>
               <button
                 onClick={copyInboxEmail}
-                className="flex items-center gap-1.5 text-sm text-bronze hover:underline"
+                className="flex items-center gap-1.5 text-sm text-brand-orange hover:underline"
               >
                 {copied ? (
                   <>
@@ -361,9 +361,9 @@ export default function OnboardingWizardPage() {
               </button>
             </div>
 
-            <div className="bg-cream/50 rounded-card p-4 space-y-2">
-              <p className="text-sm font-medium text-ink">How to set up forwarding</p>
-              <ol className="text-sm text-gray-500 space-y-1 list-decimal list-inside">
+            <div className="bg-bg-inset/50 rounded-xl p-4 space-y-2">
+              <p className="text-sm font-medium text-text-primary">How to set up forwarding</p>
+              <ol className="text-sm text-text-tertiary space-y-1 list-decimal list-inside">
                 <li>Open your email provider settings</li>
                 <li>Add a forwarding rule for project-related emails</li>
                 <li>Set the forwarding address to your inbox above</li>
@@ -371,7 +371,7 @@ export default function OnboardingWizardPage() {
               </ol>
             </div>
 
-            <div className="flex justify-end pt-4 border-t border-card-border">
+            <div className="flex justify-end pt-4 border-t border-border">
               <button
                 onClick={() => router.push("/dashboard")}
                 className="btn-primary"

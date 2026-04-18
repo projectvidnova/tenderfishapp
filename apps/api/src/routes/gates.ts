@@ -3,6 +3,7 @@ import { db, projects, gates, approvals, users } from "@tenderfish/db";
 import { eq, and, asc, inArray } from "drizzle-orm";
 import { requireAccess } from "../middleware/rbac";
 import { logAudit } from "../utils/audit";
+import { gateOverrideSchema, validateBody } from "../lib/validation";
 
 async function verifyProject(projectId: string, workspaceId: string) {
   return db.query.projects.findFirst({
@@ -120,10 +121,10 @@ export async function gateRoutes(app: FastifyInstance) {
     }
 
     const { id, gate: gateParam } = request.params as { id: string; gate: string };
-    const body = request.body as { reason: string };
 
-    if (!body.reason || body.reason.trim().length < 50) {
-      return reply.status(400).send({ error: "Override reason must be at least 50 characters" });
+    const parsed = validateBody(gateOverrideSchema, request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: parsed.error });
     }
 
     const project = await verifyProject(id, request.auth.workspaceId);
@@ -139,7 +140,7 @@ export async function gateRoutes(app: FastifyInstance) {
       .set({
         status: "overridden",
         overrideActive: true,
-        overrideReason: body.reason.trim(),
+        overrideReason: parsed.data.reason,
         overrideBy: request.auth.userId,
         overrideAt: new Date(),
       })
@@ -155,7 +156,7 @@ export async function gateRoutes(app: FastifyInstance) {
       entityType: "gate",
       entityId: gateRecord.id,
       beforeState: { status: gateRecord.status, gate: gateParam },
-      afterState: { status: "overridden", reason: body.reason.trim() },
+      afterState: { status: "overridden", reason: parsed.data.reason },
     });
 
     // Unlock next gate

@@ -10,8 +10,9 @@ import {
   Plus,
   ArrowRight,
 } from "lucide-react";
+import { config } from "@/lib/config";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API = config.apiUrl;
 
 interface ProjectCard {
   id: string;
@@ -99,36 +100,27 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Overview of your active projects and pending actions.
-          </p>
-        </div>
-        <Link
-          href="/projects/new"
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus size={16} />
-          New Project
-        </Link>
+      <div>
+        <h1 className="text-2xl font-bold text-text-primary tracking-tight">Dashboard</h1>
+        <p className="text-sm text-text-tertiary mt-1">
+          Overview of your active projects and pending actions.
+        </p>
       </div>
 
       {/* Section 1: Active Projects Pipeline */}
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <FolderKanban size={18} className="text-bronze" />
+          <FolderKanban size={18} className="text-brand-orange" />
           <h2 className="text-lg font-medium">Active Projects</h2>
         </div>
         <div className="flex gap-4 overflow-x-auto pb-2">
           {projects.length === 0 && !loading ? (
             <div className="card p-6 min-w-[200px] flex flex-col items-center justify-center text-center">
-              <FolderKanban size={32} className="text-gray-300 mb-2" />
-              <p className="text-sm text-gray-400">No projects yet</p>
+              <FolderKanban size={32} className="text-text-quaternary mb-2" />
+              <p className="text-sm text-text-tertiary">No projects yet</p>
               <Link
                 href="/projects/new"
-                className="text-sm text-bronze font-medium mt-2 hover:underline"
+                className="text-sm text-brand-orange font-medium mt-2 hover:underline"
               >
                 Create your first project →
               </Link>
@@ -138,14 +130,14 @@ export default function DashboardPage() {
               <Link
                 key={p.id}
                 href={`/projects/${p.id}/overview`}
-                className="card p-4 min-w-[200px] w-[200px] h-[140px] flex flex-col justify-between hover:border-bronze/50 transition-colors shrink-0"
+                className="card p-4 min-w-[200px] w-[200px] h-[140px] flex flex-col justify-between hover:border-brand-orange-border transition-colors shrink-0"
               >
                 <div>
-                  <p className="text-sm font-medium text-ink leading-tight line-clamp-2">
+                  <p className="text-sm font-medium text-text-primary leading-tight line-clamp-2">
                     {p.name}
                   </p>
                   <div className="flex items-center gap-2 mt-2">
-                    <span className="text-xs font-mono font-medium text-bronze bg-bronze/10 px-1.5 py-0.5 rounded-sm">
+                    <span className="text-xs font-mono font-medium text-brand-orange bg-brand-orange-light px-1.5 py-0.5 rounded-sm">
                       LPH {p.currentLph}
                     </span>
                     <GateBadgeSmall
@@ -156,7 +148,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <HealthDot score={p.healthScore} />
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-text-quaternary">
                     {p.procurementModel.replace(/_/g, " ")}
                   </span>
                 </div>
@@ -169,28 +161,28 @@ export default function DashboardPage() {
       {/* Section 2: Action Required */}
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <AlertCircle size={18} className="text-health-red" />
+          <AlertCircle size={18} className="text-status-danger" />
           <h2 className="text-lg font-medium">Action Required</h2>
         </div>
         <div className="card overflow-hidden">
           {actionItems.length === 0 ? (
             <div className="p-8 text-center">
-              <p className="text-sm text-gray-400">No pending actions.</p>
+              <p className="text-sm text-text-tertiary">No pending actions.</p>
             </div>
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-card-border bg-cream/50">
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                <tr className="border-b border-border bg-bg-inset">
+                  <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wider">
                     Project
                   </th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                  <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wider">
                     Item
                   </th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                  <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wider">
                     Type
                   </th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                  <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wider">
                     Due
                   </th>
                   <th className="text-right px-4 py-3"></th>
@@ -200,12 +192,12 @@ export default function DashboardPage() {
                 {actionItems.map((item, i) => (
                   <tr
                     key={i}
-                    className="border-b border-card-border last:border-0"
+                    className="border-b border-border-light last:border-0"
                   >
-                    <td className="px-4 py-3 text-ink font-medium">
+                    <td className="px-4 py-3 text-text-primary font-medium">
                       {item.projectName}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{item.item}</td>
+                    <td className="px-4 py-3 text-text-secondary">{item.item}</td>
                     <td className="px-4 py-3">
                       <ActionTypeChip type={item.type} />
                     </td>
@@ -214,20 +206,20 @@ export default function DashboardPage() {
                         <span
                           className={
                             item.due < new Date().toISOString().slice(0, 10)
-                              ? "text-health-red font-medium"
-                              : "text-gray-600"
+                              ? "text-status-danger font-medium"
+                              : "text-text-secondary"
                           }
                         >
                           {item.due}
                         </span>
                       ) : (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-text-quaternary">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link
                         href={item.link}
-                        className="text-bronze text-xs font-medium hover:underline inline-flex items-center gap-1"
+                        className="text-brand-orange text-xs font-medium hover:underline inline-flex items-center gap-1"
                       >
                         Resolve
                         <ArrowRight size={12} />
@@ -244,34 +236,34 @@ export default function DashboardPage() {
       {/* Section 3: Upcoming Milestones */}
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <CalendarDays size={18} className="text-bronze" />
+          <CalendarDays size={18} className="text-brand-orange" />
           <h2 className="text-lg font-medium">Upcoming Milestones</h2>
-          <span className="text-xs text-gray-400 ml-1">next 30 days</span>
+          <span className="text-xs text-text-quaternary ml-1">next 30 days</span>
         </div>
         <div className="card overflow-hidden">
           {milestones.length === 0 ? (
             <div className="p-8 text-center">
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-text-tertiary">
                 No upcoming milestones.
               </p>
             </div>
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-card-border bg-cream/50">
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                <tr className="border-b border-border bg-bg-inset">
+                  <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wider">
                     Date
                   </th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                  <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wider">
                     Project
                   </th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                  <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wider">
                     Milestone
                   </th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                  <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wider">
                     Phase
                   </th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-500 text-xs uppercase tracking-wide">
+                  <th className="text-left px-4 py-3 font-medium text-text-tertiary text-xs uppercase tracking-wider">
                     Status
                   </th>
                 </tr>
@@ -280,17 +272,17 @@ export default function DashboardPage() {
                 {milestones.map((m, i) => (
                   <tr
                     key={i}
-                    className="border-b border-card-border last:border-0"
+                    className="border-b border-border-light last:border-0"
                   >
-                    <td className="px-4 py-3 font-mono text-xs text-gray-600">
+                    <td className="px-4 py-3 font-mono text-xs text-text-secondary">
                       {m.date}
                     </td>
-                    <td className="px-4 py-3 text-ink font-medium">
+                    <td className="px-4 py-3 text-text-primary font-medium">
                       {m.projectName}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{m.milestone}</td>
+                    <td className="px-4 py-3 text-text-secondary">{m.milestone}</td>
                     <td className="px-4 py-3">
-                      <span className="text-xs font-mono font-medium text-bronze">
+                      <span className="text-xs font-mono font-medium text-brand-orange">
                         {m.phase}
                       </span>
                     </td>
@@ -308,13 +300,13 @@ export default function DashboardPage() {
       {/* Section 4: Blocked Projects */}
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <ShieldAlert size={18} className="text-gray-400" />
+          <ShieldAlert size={18} className="text-text-tertiary" />
           <h2 className="text-lg font-medium">Blocked Projects</h2>
         </div>
         {blockedProjects.length === 0 ? (
           <div className="card">
             <div className="p-8 text-center">
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-text-tertiary">
                 No blocked projects — good.
               </p>
             </div>
@@ -325,18 +317,18 @@ export default function DashboardPage() {
               <Link
                 key={bp.id}
                 href={`/projects/${bp.id}/gates`}
-                className="card p-4 hover:border-health-red/30 transition-colors"
+                className="card p-4 hover:border-status-danger/30 transition-colors"
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="w-2 h-2 rounded-full bg-health-red" />
-                  <span className="text-sm font-medium text-ink">
+                  <span className="w-2 h-2 rounded-full bg-status-danger" />
+                  <span className="text-sm font-medium text-text-primary">
                     {bp.name}
                   </span>
                 </div>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-text-secondary">
                   Gate {bp.gate} blocked — {bp.topBlocker}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-text-tertiary mt-1">
                   {bp.unmetCount} unmet criteria
                 </p>
               </Link>
@@ -353,10 +345,10 @@ export default function DashboardPage() {
 function HealthDot({ score }: { score: string }) {
   const color =
     score === "green"
-      ? "bg-health-on-track"
+      ? "bg-status-success"
       : score === "amber"
-      ? "bg-health-at-risk"
-      : "bg-health-red";
+      ? "bg-status-warning"
+      : "bg-status-danger";
   const label =
     score === "green"
       ? "On track"
@@ -365,7 +357,7 @@ function HealthDot({ score }: { score: string }) {
       : "Blocked";
 
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+    <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
       <span className={`w-2 h-2 rounded-full ${color}`} />
       {label}
     </span>
@@ -381,10 +373,10 @@ function GateBadgeSmall({
 }) {
   const color =
     status === "complete"
-      ? "text-gate-complete"
+      ? "text-status-success"
       : status === "in_progress"
-      ? "text-bronze"
-      : "text-gray-400";
+      ? "text-brand-orange"
+      : "text-text-tertiary";
 
   return (
     <span className={`text-xs font-mono font-medium ${color}`}>
@@ -395,17 +387,17 @@ function GateBadgeSmall({
 
 function ActionTypeChip({ type }: { type: string }) {
   const styles: Record<string, string> = {
-    "Overdue Approval": "bg-red-50 text-red-700 border-red-200",
-    "Blocked Gate": "bg-orange-50 text-orange-700 border-orange-200",
-    "Missing Info": "bg-amber-50 text-amber-700 border-amber-200",
-    "Pending Invitation": "bg-blue-50 text-blue-700 border-blue-200",
-    "Overdue Review": "bg-purple-50 text-purple-700 border-purple-200",
+    "Overdue Approval": "bg-status-danger-light text-state-missing-text",
+    "Blocked Gate": "bg-brand-orange-light text-brand-orange",
+    "Missing Info": "bg-status-warning-light text-state-unclear-text",
+    "Pending Invitation": "bg-status-info-light text-status-info",
+    "Overdue Review": "bg-status-danger-light text-state-missing-text",
   };
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-sm border ${
-        styles[type] || "bg-gray-50 text-gray-600 border-gray-200"
+      className={`inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full ${
+        styles[type] || "bg-bg-inset text-text-secondary"
       }`}
     >
       {type}
@@ -415,13 +407,13 @@ function ActionTypeChip({ type }: { type: string }) {
 
 function TaskStatusChip({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    not_started: "text-gray-400",
-    in_progress: "text-bronze font-medium",
-    complete: "text-gate-complete font-medium",
+    not_started: "text-text-tertiary",
+    in_progress: "text-brand-orange font-medium",
+    complete: "text-status-success font-medium",
   };
 
   return (
-    <span className={`text-xs ${styles[status] || "text-gray-400"}`}>
+    <span className={`text-xs ${styles[status] || "text-text-tertiary"}`}>
       {status.replace(/_/g, " ")}
     </span>
   );
