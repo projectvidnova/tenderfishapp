@@ -6,9 +6,8 @@ services:
   api:
     image: ${IMAGE_PREFIX:-ghcr.io/projectvidnova/tenderfishapp}/api:latest
     restart: unless-stopped
+    network_mode: host
     env_file: .env
-    ports:
-      - "127.0.0.1:3001:3001"
     depends_on:
       redis:
         condition: service_healthy
@@ -24,13 +23,12 @@ services:
     env_file: .env
     ports:
       - "127.0.0.1:3002:3002"
-    depends_on:
-      api:
-        condition: service_healthy
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -45,12 +43,13 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./infra/Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - api
       - web
 
 volumes:

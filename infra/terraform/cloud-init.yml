@@ -48,7 +48,7 @@ runcmd:
     cat > /opt/${project_name}/infra/Caddyfile << 'CADDYEOF'
     :80 {
       handle /api/* {
-        reverse_proxy api:3001
+        reverse_proxy 127.0.0.1:3001
       }
       handle {
         reverse_proxy web:3002
@@ -68,9 +68,8 @@ runcmd:
       api:
         image: ghcr.io/${github_repo}/api:latest
         restart: unless-stopped
+        network_mode: host
         env_file: .env
-        ports:
-          - "127.0.0.1:3001:3001"
         depends_on:
           redis:
             condition: service_healthy
@@ -85,12 +84,11 @@ runcmd:
         env_file: .env
         ports:
           - "127.0.0.1:3002:3002"
-        depends_on:
-          api:
-            condition: service_healthy
       redis:
         image: redis:7-alpine
         restart: unless-stopped
+        ports:
+          - "127.0.0.1:6379:6379"
         volumes:
           - redis_data:/data
         healthcheck:
@@ -104,12 +102,13 @@ runcmd:
         ports:
           - "80:80"
           - "443:443"
+        extra_hosts:
+          - "host.docker.internal:host-gateway"
         volumes:
           - ./infra/Caddyfile:/etc/caddy/Caddyfile
           - caddy_data:/data
           - caddy_config:/config
         depends_on:
-          - api
           - web
     volumes:
       redis_data:
