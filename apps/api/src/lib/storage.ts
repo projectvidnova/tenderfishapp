@@ -14,10 +14,14 @@ const env = getEnv();
 const s3 = new S3Client({
   endpoint: env.S3_ENDPOINT,
   region: env.S3_REGION,
-  credentials: {
-    accessKeyId: env.S3_ACCESS_KEY_ID,
-    secretAccessKey: env.S3_SECRET_ACCESS_KEY,
-  },
+  ...(env.S3_ACCESS_KEY_ID && env.S3_SECRET_ACCESS_KEY
+    ? {
+        credentials: {
+          accessKeyId: env.S3_ACCESS_KEY_ID,
+          secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+        },
+      }
+    : {}),
   forcePathStyle: true, // Required for IONOS S3-compatible storage
 });
 

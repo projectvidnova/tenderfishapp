@@ -314,7 +314,7 @@ export default function OnboardingWizardPage() {
                 onClick={() => setStep(3)}
                 className="text-sm text-text-quaternary hover:text-text-secondary"
               >
-                I'll do this later
+                I&apos;ll do this later
               </button>
               <button
                 onClick={handleStep2Submit}
