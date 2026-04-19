@@ -23,9 +23,12 @@ const envSchema = z.object({
   // Clerk auth
   CLERK_SECRET_KEY: z.string().optional(),
 
-  // GCS
-  GCS_PROJECT_ID: z.string().optional(),
-  GCS_BUCKET_NAME: z.string().default("tenderfish-dev-files"),
+  // S3-compatible storage (IONOS Object Storage)
+  S3_ENDPOINT: z.string().url().optional(),
+  S3_REGION: z.string().default("de"),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
+  S3_BUCKET_NAME: z.string().default("tenderfish-dev-files"),
 
   // CORS
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3002"),

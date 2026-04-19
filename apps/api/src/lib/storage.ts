@@ -1,15 +1,27 @@
-import { Storage } from "@google-cloud/storage";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl as s3GetSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import { getEnv } from "./env";
 
 const env = getEnv();
-const bucketName = env.GCS_BUCKET_NAME;
 
-const storage = new Storage({
-  projectId: env.GCS_PROJECT_ID,
+const s3 = new S3Client({
+  endpoint: env.S3_ENDPOINT,
+  region: env.S3_REGION,
+  credentials: {
+    accessKeyId: env.S3_ACCESS_KEY_ID,
+    secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+  },
+  forcePathStyle: true, // Required for IONOS S3-compatible storage
 });
 
-const bucket = storage.bucket(bucketName);
+const bucketName = env.S3_BUCKET_NAME;
 
 interface UploadParams {
   workspaceId: string;
@@ -22,26 +34,27 @@ interface UploadParams {
 }
 
 /**
- * Upload a file to GCS with the standard path structure.
+ * Upload a file to S3-compatible storage with the standard path structure.
  * Path: {workspaceId}/projects/{projectId}/documents/{documentId}/v{version}/{fileName}
  */
 export async function uploadFile(params: UploadParams): Promise<string> {
   const { workspaceId, projectId, documentId, version, fileName, fileBuffer, contentType } = params;
   const storagePath = `${workspaceId}/projects/${projectId}/documents/${documentId}/v${version}/${fileName}`;
 
-  const file = bucket.file(storagePath);
-
-  await file.save(fileBuffer, {
-    metadata: {
-      contentType,
-      metadata: {
-        workspaceId,
-        projectId,
-        documentId,
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: bucketName,
+      Key: storagePath,
+      Body: fileBuffer,
+      ContentType: contentType,
+      Metadata: {
+        workspaceid: workspaceId,
+        projectid: projectId,
+        documentid: documentId,
         version: String(version),
       },
-    },
-  });
+    })
+  );
 
   return storagePath;
 }
@@ -59,45 +72,59 @@ export async function uploadRawFile(
   const uploadId = randomUUID();
   const storagePath = `${workspaceId}/uploads/${uploadId}/${fileName}`;
 
-  const file = bucket.file(storagePath);
-
-  await file.save(fileBuffer, {
-    metadata: { contentType },
-  });
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: bucketName,
+      Key: storagePath,
+      Body: fileBuffer,
+      ContentType: contentType,
+    })
+  );
 
   return storagePath;
 }
 
 /**
- * Generate a signed URL for temporary file access (15 minutes).
+ * Generate a signed URL for temporary file access.
  */
 export async function getSignedUrl(storagePath: string): Promise<string> {
-  const file = bucket.file(storagePath);
-
-  const [url] = await file.getSignedUrl({
-    version: "v4",
-    action: "read",
-    expires: Date.now() + env.SIGNED_URL_EXPIRY_MS,
+  const command = new GetObjectCommand({
+    Bucket: bucketName,
+    Key: storagePath,
   });
 
-  return url;
+  return s3GetSignedUrl(s3, command, {
+    expiresIn: Math.floor(env.SIGNED_URL_EXPIRY_MS / 1000),
+  });
 }
 
 /**
- * Delete a file from GCS.
+ * Delete a file from S3-compatible storage.
  */
 export async function deleteFile(storagePath: string): Promise<void> {
-  const file = bucket.file(storagePath);
-  await file.delete({ ignoreNotFound: true });
+  await s3.send(
+    new DeleteObjectCommand({
+      Bucket: bucketName,
+      Key: storagePath,
+    })
+  );
 }
 
 /**
- * Check if a file exists in GCS.
+ * Check if a file exists in S3-compatible storage.
  */
 export async function fileExists(storagePath: string): Promise<boolean> {
-  const file = bucket.file(storagePath);
-  const [exists] = await file.exists();
-  return exists;
+  try {
+    await s3.send(
+      new HeadObjectCommand({
+        Bucket: bucketName,
+        Key: storagePath,
+      })
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // Supported upload MIME types

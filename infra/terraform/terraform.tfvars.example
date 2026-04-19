@@ -1,0 +1,34 @@
+# Production variable values
+# Copy to terraform.tfvars and fill in secrets
+
+environment    = "production"
+project_name   = "tenderfish"
+location       = "de/fra"
+
+# VPS
+server_cores   = 4
+server_ram_mb   = 8192
+server_disk_gb = 80
+server_image   = "ubuntu:22.04"
+ssh_public_key = ""          # Paste your ed25519 public key
+
+# PostgreSQL
+pg_version        = "15"
+pg_instances      = 1
+pg_cores          = 2
+pg_ram_mb         = 4096
+pg_storage_gb     = 20
+pg_admin_username = "tenderfish_admin"
+pg_admin_password = ""       # Set a strong password
+pg_db_name        = "tenderfish"
+
+# S3 Storage
+s3_endpoint    = "https://s3.eu-central-1.ionoscloud.com"
+s3_region      = "de"
+s3_access_key  = ""          # IONOS S3 access key
+s3_secret_key  = ""          # IONOS S3 secret key
+s3_bucket_name = "tenderfish-prod-files"
+
+# Application
+domain      = "app.tenderfish.de"  # Your domain
+github_repo = "projectvidnova/tenderfishapp"

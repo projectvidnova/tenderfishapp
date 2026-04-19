@@ -1,0 +1,181 @@
+name: Deploy Application
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "infra/terraform/**"
+      - "**.md"
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: "Skip tests"
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+
+jobs:
+  # ─── Stage 1: Lint & Type Check ─────────────────
+  check:
+    name: Lint & Types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx turbo lint --filter=@tenderfish/api --filter=@tenderfish/web
+      - run: npx turbo build --filter=@tenderfish/db --filter=@tenderfish/shared
+        # Build shared packages first so type-check can resolve them
+
+  # ─── Stage 2: Build & Push Docker Images ────────
+  build:
+    name: Build Images
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push API
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/api:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/api:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build & push Web
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/web:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/web:latest
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_APP_URL=${{ vars.NEXT_PUBLIC_APP_URL }}
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ vars.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+  # ─── Stage 3: Deploy to IONOS VPS ──────────────
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.IONOS_HOST }}
+          username: ${{ secrets.IONOS_USER }}
+          key: ${{ secrets.IONOS_SSH_KEY }}
+          envs: IMAGE_PREFIX
+          script: |
+            set -e
+            cd /opt/tenderfish
+
+            # Authenticate with GHCR
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Pull new images
+            docker pull ${{ env.IMAGE_PREFIX }}/api:${{ github.sha }}
+            docker pull ${{ env.IMAGE_PREFIX }}/web:${{ github.sha }}
+
+            # Tag as latest locally
+            docker tag ${{ env.IMAGE_PREFIX }}/api:${{ github.sha }} ${{ env.IMAGE_PREFIX }}/api:latest
+            docker tag ${{ env.IMAGE_PREFIX }}/web:${{ github.sha }} ${{ env.IMAGE_PREFIX }}/web:latest
+
+            # Rolling restart (zero-downtime for Caddy)
+            docker compose -f docker-compose.production.yml up -d --no-build --force-recreate api web
+
+            # Wait for API health
+            echo "Waiting for API health check..."
+            for i in $(seq 1 30); do
+              if curl -sf http://localhost:3001/api/health > /dev/null 2>&1; then
+                echo "API healthy after ${i}s"
+                break
+              fi
+              if [ "$i" -eq 30 ]; then
+                echo "API health check failed!"
+                docker compose -f docker-compose.production.yml logs --tail=50 api
+                exit 1
+              fi
+              sleep 1
+            done
+
+  # ─── Stage 4: DB Migration ─────────────────────
+  migrate:
+    name: Migrate DB
+    needs: deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run migrations via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.IONOS_HOST }}
+          username: ${{ secrets.IONOS_USER }}
+          key: ${{ secrets.IONOS_SSH_KEY }}
+          script: |
+            cd /opt/tenderfish
+            docker compose -f docker-compose.production.yml exec -T api npx drizzle-kit push
+
+  # ─── Stage 5: Smoke Test ───────────────────────
+  smoke-test:
+    name: Smoke Test
+    needs: migrate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Verify endpoints
+        run: |
+          echo "Testing health..."
+          curl -sf "${{ vars.NEXT_PUBLIC_API_URL }}/health" || exit 1
+
+          echo "Testing web..."
+          STATUS=$(curl -so /dev/null -w '%{http_code}' "${{ vars.NEXT_PUBLIC_APP_URL }}")
+          if [ "$STATUS" -ne 200 ]; then
+            echo "Web returned $STATUS"
+            exit 1
+          fi
+
+          echo "All smoke tests passed."
+
+      - name: Summary
+        run: |
+          echo "## Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **API:** ${{ vars.NEXT_PUBLIC_API_URL }}/health" >> $GITHUB_STEP_SUMMARY
+          echo "- **Web:** ${{ vars.NEXT_PUBLIC_APP_URL }}" >> $GITHUB_STEP_SUMMARY

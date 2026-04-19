@@ -1,0 +1,91 @@
+name: Infrastructure — Provision IONOS Resources
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Terraform action"
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+        default: plan
+  push:
+    branches: [main]
+    paths:
+      - "infra/terraform/**"
+
+env:
+  TF_DIR: infra/terraform
+  # IONOS auth
+  IONOS_TOKEN: ${{ secrets.IONOS_TOKEN }}
+
+jobs:
+  terraform:
+    name: "Terraform ${{ github.event.inputs.action || 'plan' }}"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.TF_DIR }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7"
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="endpoint=${{ vars.TF_STATE_S3_ENDPOINT }}" \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="access_key=${{ secrets.S3_ACCESS_KEY_ID }}" \
+            -backend-config="secret_key=${{ secrets.S3_SECRET_ACCESS_KEY }}" \
+            -backend-config="skip_credentials_validation=true" \
+            -backend-config="skip_metadata_api_check=true" \
+            -backend-config="skip_region_validation=true" \
+            -backend-config="force_path_style=true"
+
+      - name: Terraform Plan
+        run: |
+          terraform plan -out=tfplan \
+            -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" \
+            -var="pg_admin_password=${{ secrets.PG_ADMIN_PASSWORD }}" \
+            -var="s3_access_key=${{ secrets.S3_ACCESS_KEY_ID }}" \
+            -var="s3_secret_key=${{ secrets.S3_SECRET_ACCESS_KEY }}" \
+            -var="domain=${{ vars.DOMAIN }}" \
+            -var="github_repo=${{ github.repository }}"
+
+      - name: Terraform Apply
+        if: github.event.inputs.action == 'apply'
+        run: terraform apply -auto-approve tfplan
+
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        run: |
+          terraform destroy -auto-approve \
+            -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" \
+            -var="pg_admin_password=${{ secrets.PG_ADMIN_PASSWORD }}" \
+            -var="s3_access_key=${{ secrets.S3_ACCESS_KEY_ID }}" \
+            -var="s3_secret_key=${{ secrets.S3_SECRET_ACCESS_KEY }}" \
+            -var="domain=${{ vars.DOMAIN }}" \
+            -var="github_repo=${{ github.repository }}"
+
+      - name: Save Outputs
+        if: github.event.inputs.action == 'apply'
+        id: outputs
+        run: |
+          echo "vps_ip=$(terraform output -raw vps_public_ip)" >> "$GITHUB_OUTPUT"
+          echo "db_host=$(terraform output -raw database_host)" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        if: github.event.inputs.action == 'apply'
+        run: |
+          echo "## Infrastructure Provisioned" >> $GITHUB_STEP_SUMMARY
+          echo "- **VPS IP:** $(terraform output -raw vps_public_ip)" >> $GITHUB_STEP_SUMMARY
+          echo "- **DB Host:** $(terraform output -raw database_host)" >> $GITHUB_STEP_SUMMARY
+          echo "- **S3 Bucket:** $(terraform output -raw s3_bucket)" >> $GITHUB_STEP_SUMMARY
