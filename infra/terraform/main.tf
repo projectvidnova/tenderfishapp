@@ -20,7 +20,7 @@ terraform {
     # Terraform state stored in IONOS S3
     # Configured via -backend-config in CI
     key                         = "tenderfish/terraform.tfstate"
-    region                      = "eu-central-1"
+    region                      = "us-east-1"
     skip_credentials_validation = true
     skip_metadata_api_check     = true
     skip_region_validation      = true
@@ -36,15 +36,15 @@ provider "ionoscloud" {
 }
 
 # AWS provider configured to talk to IONOS S3
+# Region set to us-east-1 to avoid sending LocationConstraint in CreateBucket
+# (IONOS S3 rejects non-AWS location constraints)
 provider "aws" {
-  region     = var.s3_region
+  region     = "us-east-1"
   access_key = var.s3_access_key
   secret_key = var.s3_secret_key
 
   endpoints {
-    s3  = var.s3_endpoint
-    sts = "https://sts.eu-central-1.ionoscloud.com"
-    iam = "https://iam.eu-central-1.ionoscloud.com"
+    s3 = var.s3_endpoint
   }
 
   # Required for IONOS S3 compatibility

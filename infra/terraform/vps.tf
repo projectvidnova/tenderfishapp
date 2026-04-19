@@ -12,6 +12,12 @@ resource "ionoscloud_lan" "public" {
   public        = true
 }
 
+resource "ionoscloud_lan" "private" {
+  datacenter_id = ionoscloud_datacenter.main.id
+  name          = "${var.project_name}-private"
+  public        = false
+}
+
 # ──────────────────────────────────────────────
 # VPS (Cloud Server)
 # ──────────────────────────────────────────────
@@ -41,6 +47,13 @@ resource "ionoscloud_server" "app" {
     name   = "${var.project_name}-nic"
     lan    = ionoscloud_lan.public.id
     dhcp   = true
+  }
+
+  nic {
+    name   = "${var.project_name}-nic-private"
+    lan    = ionoscloud_lan.private.id
+    dhcp   = true
+    ips    = ["192.168.1.10"]
   }
 }
 

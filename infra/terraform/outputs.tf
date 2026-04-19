@@ -14,6 +14,11 @@ output "database_url" {
   sensitive   = true
 }
 
+output "database_private_ip" {
+  description = "Private IP used for DB connection"
+  value       = "192.168.1.10"
+}
+
 output "s3_bucket" {
   description = "S3 bucket name"
   value       = aws_s3_bucket.files.bucket

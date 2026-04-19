@@ -18,7 +18,7 @@ pg_instances      = 1
 pg_cores          = 2
 pg_ram_mb         = 4096
 pg_storage_gb     = 20
-pg_admin_username = "tenderfish_admin"
+pg_admin_username = "tenderfishadmin"
 pg_admin_password = ""       # Set a strong password
 pg_db_name        = "tenderfish"
 

@@ -88,7 +88,7 @@ variable "pg_storage_gb" {
 variable "pg_admin_username" {
   description = "PostgreSQL admin username"
   type        = string
-  default     = "tenderfish_admin"
+  default     = "tenderfishadmin"
 }
 
 variable "pg_admin_password" {

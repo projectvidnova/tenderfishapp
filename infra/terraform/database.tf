@@ -19,8 +19,8 @@ resource "ionoscloud_pg_cluster" "main" {
 
   connections {
     datacenter_id = ionoscloud_datacenter.main.id
-    lan_id        = ionoscloud_lan.public.id
-    cidr          = "${ionoscloud_server.app.primary_ip}/32"
+    lan_id        = ionoscloud_lan.private.id
+    cidr          = "192.168.1.10/24"
   }
 
   maintenance_window {
