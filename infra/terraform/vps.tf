@@ -48,6 +48,10 @@ resource "ionoscloud_server" "app" {
     lan    = ionoscloud_lan.public.id
     dhcp   = true
   }
+
+  lifecycle {
+    ignore_changes = [volume[0].user_data]
+  }
 }
 
 # Private NIC for database connectivity
