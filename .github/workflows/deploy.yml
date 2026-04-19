@@ -107,6 +107,57 @@ jobs:
           target: /opt/tenderfish
           overwrite: true
 
+      - name: Generate .env on VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.IONOS_HOST }}
+          username: ${{ secrets.IONOS_USER }}
+          key: ${{ secrets.IONOS_SSH_KEY }}
+          script: |
+            set -e
+            cat > /opt/tenderfish/.env << 'ENVEOF'
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            REDIS_URL=redis://localhost:6379
+            CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY }}
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ vars.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+            CLERK_WEBHOOK_SECRET=${{ secrets.CLERK_WEBHOOK_SECRET }}
+            AI_PROVIDER=${{ vars.AI_PROVIDER || 'ionos' }}
+            IONOS_API_KEY=${{ secrets.IONOS_API_KEY }}
+            IONOS_AI_BASE_URL=${{ vars.IONOS_AI_BASE_URL || 'https://openai.inference.de-txl.ionos.com/v1' }}
+            IONOS_AI_MODEL=${{ vars.IONOS_AI_MODEL || 'meta-llama/Meta-Llama-3.1-8B-Instruct' }}
+            ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+            ANTHROPIC_MODEL=${{ vars.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514' }}
+            POSTMARK_API_KEY=${{ secrets.POSTMARK_API_KEY }}
+            POSTMARK_INBOUND_HASH=${{ secrets.POSTMARK_INBOUND_HASH }}
+            S3_ENDPOINT=${{ vars.S3_ENDPOINT || 'https://s3.eu-central-1.ionoscloud.com' }}
+            S3_REGION=${{ vars.S3_REGION || 'de' }}
+            S3_ACCESS_KEY_ID=${{ secrets.S3_ACCESS_KEY_ID }}
+            S3_SECRET_ACCESS_KEY=${{ secrets.S3_SECRET_ACCESS_KEY }}
+            S3_BUCKET_NAME=${{ vars.S3_BUCKET_NAME || 'tenderfish-dev-files' }}
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_APP_URL=${{ vars.NEXT_PUBLIC_APP_URL }}
+            NODE_ENV=production
+            PORT=3001
+            HOST=0.0.0.0
+            LOG_LEVEL=info
+            RATE_LIMIT_MAX=100
+            RATE_LIMIT_WINDOW=1 minute
+            AUTH_RATE_LIMIT_MAX=10
+            AUTH_RATE_LIMIT_WINDOW=15 minutes
+            MAX_FILE_SIZE_BYTES=52428800
+            CORS_MAX_AGE_SECONDS=86400
+            SIGNED_URL_EXPIRY_MS=900000
+            AI_MAX_TOKENS_EXTRACT=4096
+            AI_MAX_TOKENS_CLASSIFY=2048
+            AI_MAX_TOKENS_CHAT=1024
+            AI_FACT_EXTRACTION_MAX_CHARS=100000
+            AI_CLASSIFICATION_MAX_CHARS=50000
+            CHAT_HISTORY_LIMIT=10
+            DEFAULT_COUNTRY=Germany
+            ENVEOF
+            chmod 600 /opt/tenderfish/.env
+            echo ".env generated successfully"
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:

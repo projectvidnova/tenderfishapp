@@ -1,14 +1,8 @@
 import { FastifyInstance } from "fastify";
-import Anthropic from "@anthropic-ai/sdk";
 import { db, projects, documents, costSnapshots, projectDescriptions, participants } from "@tenderfish/db";
 import { eq, desc } from "drizzle-orm";
 import { getEnv } from "../lib/env";
-
-function getClient() {
-  const env = getEnv();
-  if (!env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
-  return new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-}
+import { aiChat } from "../lib/ai-client";
 
 interface ChatBody {
   message: string;
@@ -52,25 +46,18 @@ ${spd ? `- SPD Summary: ${JSON.stringify({ projectName: spd.projectName, project
 Be concise and practical. Answer in the same language the user writes in (German or English). Reference specific HOAI phases, DIN 276 cost groups, or VOB regulations when relevant. If you don't know something specific about the project, say so.`;
 
       try {
-        const client = getClient();
         const env = getEnv();
-        const response = await client.messages.create({
-          model: env.AI_MODEL,
-          max_tokens: env.AI_MAX_TOKENS_CHAT,
+        const text = await aiChat({
+          maxTokens: env.AI_MAX_TOKENS_CHAT,
           system: systemPrompt,
           messages: [
             ...history.slice(-env.CHAT_HISTORY_LIMIT).map((h) => ({
               role: h.role as "user" | "assistant",
               content: h.content,
             })),
-            { role: "user", content: message },
+            { role: "user" as const, content: message },
           ],
         });
-
-        const text = response.content
-          .filter((c): c is Anthropic.TextBlock => c.type === "text")
-          .map((c) => c.text)
-          .join("");
 
         return { data: { role: "assistant", content: text } };
       } catch (err) {

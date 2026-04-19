@@ -10,14 +10,8 @@
  * - GEG, Bauordnung, Brandschutz, SiGeKo compliance
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import { aiChat, aiVision } from "../lib/ai-client";
 import { getEnv } from "../lib/env";
-
-const getClient = () => {
-  const env = getEnv();
-  if (!env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
-  return new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-};
 
 // ─── Step 2: Fact Extraction ───────────────────────────────────
 
@@ -37,8 +31,6 @@ export async function extractFacts(
   documentText: string,
   formContext?: Record<string, string>
 ): Promise<FactExtractionResult> {
-  const client = getClient();
-
   const contextSection = formContext
     ? `\n\nUser-provided context:\n${Object.entries(formContext)
         .filter(([, v]) => v)
@@ -48,9 +40,8 @@ export async function extractFacts(
 
   const env = getEnv();
 
-  const response = await client.messages.create({
-    model: env.AI_MODEL,
-    max_tokens: env.AI_MAX_TOKENS_EXTRACT,
+  const text = await aiChat({
+    maxTokens: env.AI_MAX_TOKENS_EXTRACT,
     messages: [
       {
         role: "user",
@@ -88,7 +79,6 @@ Required fields to extract:
 — Regulatory: building_permit_status, fire_protection_class, energy_standard, heritage_protection, environmental_requirements, accessibility_requirements, sigeko_required`,
   });
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
   return JSON.parse(text) as FactExtractionResult;
 }
 
@@ -123,8 +113,6 @@ export async function classifyProject(
   documentText: string,
   facts: ExtractedFact[]
 ): Promise<ClassificationResult> {
-  const client = getClient();
-
   const factsContext = facts
     .filter((f) => f.value && f.data_state !== "MISSING")
     .map((f) => `- ${f.field}: ${f.value} (${f.data_state})`)
@@ -132,9 +120,8 @@ export async function classifyProject(
 
   const env = getEnv();
 
-  const response = await client.messages.create({
-    model: env.AI_MODEL,
-    max_tokens: env.AI_MAX_TOKENS_CLASSIFY,
+  const text = await aiChat({
+    maxTokens: env.AI_MAX_TOKENS_CLASSIFY,
     messages: [
       {
         role: "user",
@@ -172,7 +159,6 @@ Schema:
 }`,
   });
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
   return JSON.parse(text) as ClassificationResult;
 }
 
@@ -349,16 +335,13 @@ export async function generateProjectStructure(
   facts: ExtractedFact[],
   classification: ClassificationResult
 ): Promise<ProjectStructure> {
-  const client = getClient();
-
   const factsContext = facts
     .filter((f) => f.value)
     .map((f) => `- ${f.field}: ${f.value} (${f.data_state})`)
     .join("\n");
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 8192,
+  const text = await aiChat({
+    maxTokens: 8192,
     messages: [
       {
         role: "user",
@@ -436,7 +419,6 @@ Rules:
 - Ensure risks and consultant requirements are comprehensive for the project type.`,
   });
 
-  const text = response.content[0].type === "text" ? response.content[0].text : "";
   return JSON.parse(text) as ProjectStructure;
 }
 
@@ -446,32 +428,15 @@ export async function extractTextFromImage(
   imageBuffer: Buffer,
   fileName: string
 ): Promise<string> {
-  const client = getClient();
-
-  const base64 = imageBuffer.toString("base64");
   const ext = fileName.toLowerCase().split(".").pop();
-  const mediaType =
+  const mediaType: "image/png" | "image/jpeg" | "image/gif" =
     ext === "png" ? "image/png" : ext === "gif" ? "image/gif" : "image/jpeg";
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 2048,
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: { type: "base64", media_type: mediaType, data: base64 },
-          },
-          {
-            type: "text",
-            text: "Extract all readable text from this image. If it's a plan or drawing, describe its contents. Return plain text only.",
-          },
-        ],
-      },
-    ],
+  return aiVision({
+    imageBuffer,
+    mediaType,
+    prompt:
+      "Extract all readable text from this image. If it's a plan or drawing, describe its contents. Return plain text only.",
+    maxTokens: 2048,
   });
-
-  return response.content[0].type === "text" ? response.content[0].text : "";
 }

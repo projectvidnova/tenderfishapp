@@ -8,8 +8,15 @@ const envSchema = z.object({
   // Required
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 
-  // Required for AI features
+  // AI provider selection: "ionos" (default) or "anthropic"
+  AI_PROVIDER: z.enum(["ionos", "anthropic"]).default("ionos"),
+
+  // Anthropic (required when AI_PROVIDER=anthropic)
   ANTHROPIC_API_KEY: z.string().min(1, "ANTHROPIC_API_KEY is required").optional(),
+
+  // IONOS AI (required when AI_PROVIDER=ionos)
+  IONOS_API_KEY: z.string().min(1, "IONOS_API_KEY is required").optional(),
+  IONOS_AI_BASE_URL: z.string().url().default("https://openai.inference.de-txl.ionos.com/v1"),
 
   // Optional with defaults
   PORT: z.coerce.number().int().positive().default(3001),
@@ -48,8 +55,9 @@ const envSchema = z.object({
   // Signed URLs
   SIGNED_URL_EXPIRY_MS: z.coerce.number().int().positive().default(15 * 60 * 1000), // 15 min
 
-  // AI
-  AI_MODEL: z.string().default("claude-sonnet-4-20250514"),
+  // AI models (per-provider)
+  ANTHROPIC_MODEL: z.string().default("claude-sonnet-4-20250514"),
+  IONOS_AI_MODEL: z.string().default("meta-llama/Meta-Llama-3.1-8B-Instruct"),
   AI_MAX_TOKENS_EXTRACT: z.coerce.number().int().positive().default(4096),
   AI_MAX_TOKENS_CLASSIFY: z.coerce.number().int().positive().default(2048),
   AI_MAX_TOKENS_CHAT: z.coerce.number().int().positive().default(1024),
