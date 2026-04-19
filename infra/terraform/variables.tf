@@ -115,7 +115,7 @@ variable "s3_endpoint" {
 variable "s3_region" {
   description = "IONOS S3 region"
   type        = string
-  default     = "de"
+  default     = "eu-central-1"
 }
 
 variable "s3_access_key" {

@@ -20,7 +20,7 @@ terraform {
     # Terraform state stored in IONOS S3
     # Configured via -backend-config in CI
     key                         = "tenderfish/terraform.tfstate"
-    region                      = "de"
+    region                      = "eu-central-1"
     skip_credentials_validation = true
     skip_metadata_api_check     = true
     skip_region_validation      = true
