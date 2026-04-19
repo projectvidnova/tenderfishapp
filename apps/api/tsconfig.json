@@ -3,7 +3,8 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "module": "ESNext",
+    "module": "CommonJS",
+    "moduleResolution": "node",
     "target": "ES2022"
   },
   "include": ["src/**/*"]
