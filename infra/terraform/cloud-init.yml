@@ -46,7 +46,7 @@ runcmd:
   - mkdir -p /opt/${project_name}/infra
   - |
     cat > /opt/${project_name}/infra/Caddyfile << 'CADDYEOF'
-    ${domain} {
+    :80 {
       handle /api/* {
         reverse_proxy api:3001
       }
@@ -57,7 +57,6 @@ runcmd:
         X-Content-Type-Options nosniff
         X-Frame-Options DENY
         Referrer-Policy strict-origin-when-cross-origin
-        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
       }
     }
     CADDYEOF
