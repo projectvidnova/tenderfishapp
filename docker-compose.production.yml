@@ -21,6 +21,8 @@ services:
     image: ${IMAGE_PREFIX:-ghcr.io/projectvidnova/tenderfishapp}/web:latest
     restart: unless-stopped
     env_file: .env
+    environment:
+      - PORT=3002
     ports:
       - "127.0.0.1:3002:3002"
 

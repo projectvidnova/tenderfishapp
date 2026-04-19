@@ -95,6 +95,18 @@ jobs:
     environment: production
 
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync config files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.IONOS_HOST }}
+          username: ${{ secrets.IONOS_USER }}
+          key: ${{ secrets.IONOS_SSH_KEY }}
+          source: "docker-compose.production.yml,infra/Caddyfile"
+          target: /opt/tenderfish
+          overwrite: true
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
