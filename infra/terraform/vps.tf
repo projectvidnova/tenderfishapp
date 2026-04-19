@@ -48,13 +48,16 @@ resource "ionoscloud_server" "app" {
     lan    = ionoscloud_lan.public.id
     dhcp   = true
   }
+}
 
-  nic {
-    name   = "${var.project_name}-nic-private"
-    lan    = ionoscloud_lan.private.id
-    dhcp   = true
-    ips    = ["192.168.1.10"]
-  }
+# Private NIC for database connectivity
+resource "ionoscloud_nic" "private" {
+  datacenter_id = ionoscloud_datacenter.main.id
+  server_id     = ionoscloud_server.app.id
+  lan           = ionoscloud_lan.private.id
+  name          = "${var.project_name}-nic-private"
+  dhcp          = false
+  ips           = ["192.168.1.10"]
 }
 
 resource "random_password" "server_password" {

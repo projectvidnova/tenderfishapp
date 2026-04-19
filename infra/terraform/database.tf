@@ -12,6 +12,8 @@ resource "ionoscloud_pg_cluster" "main" {
   storage_type         = "SSD"
   synchronization_mode = "ASYNCHRONOUS"
 
+  depends_on = [ionoscloud_nic.private]
+
   credentials {
     username = var.pg_admin_username
     password = var.pg_admin_password
