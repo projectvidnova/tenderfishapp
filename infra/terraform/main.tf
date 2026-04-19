@@ -15,8 +15,14 @@ terraform {
   backend "s3" {
     # Terraform state stored in IONOS S3
     # Configured via -backend-config in CI
-    key    = "tenderfish/terraform.tfstate"
-    region = "de"
+    key                         = "tenderfish/terraform.tfstate"
+    region                      = "de"
+    skip_credentials_validation = true
+    skip_metadata_api_check     = true
+    skip_region_validation      = true
+    skip_requesting_account_id  = true
+    skip_s3_checksum            = true
+    use_path_style              = true
   }
 }
 
@@ -32,12 +38,13 @@ provider "aws" {
   secret_key = var.s3_secret_key
 
   endpoints {
-    s3 = var.s3_endpoint
+    s3  = var.s3_endpoint
+    sts = "https://sts.eu-central-1.ionoscloud.com"
+    iam = "https://iam.eu-central-1.ionoscloud.com"
   }
 
   # Required for IONOS S3 compatibility
-  s3_use_path_style = true
-
+  s3_use_path_style           = true
   skip_credentials_validation = true
   skip_metadata_api_check     = true
   skip_requesting_account_id  = true
