@@ -57,7 +57,7 @@ resource "ionoscloud_nic" "private" {
   lan           = ionoscloud_lan.private.id
   name          = "${var.project_name}-nic-private"
   dhcp          = false
-  ips           = ["192.168.1.10"]
+  ips           = ["192.168.1.11"]
 }
 
 resource "random_password" "server_password" {
