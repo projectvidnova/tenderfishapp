@@ -41,9 +41,9 @@ variable "server_disk_gb" {
 }
 
 variable "server_image" {
-  description = "OS image alias for the VPS"
+  description = "OS image name or alias for the VPS"
   type        = string
-  default     = "ubuntu:22.04"
+  default     = "ubuntu:latest"
 }
 
 variable "ssh_public_key" {

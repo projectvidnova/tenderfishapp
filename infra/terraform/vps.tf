@@ -16,19 +16,20 @@ resource "ionoscloud_lan" "public" {
 # VPS (Cloud Server)
 # ──────────────────────────────────────────────
 resource "ionoscloud_server" "app" {
-  datacenter_id = ionoscloud_datacenter.main.id
-  name          = "${var.project_name}-app"
-  cores         = var.server_cores
-  ram           = var.server_ram_mb
+  datacenter_id  = ionoscloud_datacenter.main.id
+  name           = "${var.project_name}-app"
+  cores          = var.server_cores
+  ram            = var.server_ram_mb
+  image_name     = var.server_image
+  image_password = random_password.server_password.result
+  ssh_keys       = [var.ssh_public_key]
+  type           = "ENTERPRISE"
 
   volume {
     name      = "${var.project_name}-boot"
     size      = var.server_disk_gb
-    disk_type = "SSD"
-    image_alias    = var.server_image
-    ssh_key_path   = []
-    ssh_keys       = [var.ssh_public_key]
-    user_data      = base64encode(templatefile("${path.module}/cloud-init.yml", {
+    disk_type = "SSD Standard"
+    user_data = base64encode(templatefile("${path.module}/cloud-init.yml", {
       ssh_public_key = var.ssh_public_key
       project_name   = var.project_name
       domain         = var.domain
@@ -41,6 +42,11 @@ resource "ionoscloud_server" "app" {
     lan    = ionoscloud_lan.public.id
     dhcp   = true
   }
+}
+
+resource "random_password" "server_password" {
+  length  = 16
+  special = false
 }
 
 # ──────────────────────────────────────────────
