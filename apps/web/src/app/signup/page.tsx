@@ -287,7 +287,7 @@ export default function SignupPage() {
 
             <button
               type="submit"
-              disabled={!isValid || loading}
+              disabled={loading}
               className="btn btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {loading ? "Creating account..." : "Create account"}

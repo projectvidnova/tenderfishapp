@@ -30,8 +30,23 @@ export async function authRoutes(app: FastifyInstance) {
         const response = await auth.handler(req);
 
         reply.status(response.status);
-        response.headers.forEach((value, key) => reply.header(key, value));
-        return reply.send(response.body ? await response.text() : null);
+
+        // Set-Cookie headers must be forwarded individually —
+        // Headers.forEach() joins multiple Set-Cookie values with commas
+        // which breaks cookie parsing in the browser.
+        const setCookies = response.headers.getSetCookie?.() ?? [];
+        for (const cookie of setCookies) {
+          reply.header("set-cookie", cookie);
+        }
+        // Forward all other headers
+        response.headers.forEach((value, key) => {
+          if (key.toLowerCase() !== "set-cookie") {
+            reply.header(key, value);
+          }
+        });
+
+        const text = await response.text();
+        return reply.send(text || null);
       } catch (error) {
         request.log.error(error, "Auth handler error");
         return reply.status(500).send({ error: "Internal authentication error" });

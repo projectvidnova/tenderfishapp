@@ -183,6 +183,16 @@ jobs:
             docker tag ${{ env.IMAGE_PREFIX }}/api:${{ github.sha }} ${{ env.IMAGE_PREFIX }}/api:latest
             docker tag ${{ env.IMAGE_PREFIX }}/web:${{ github.sha }} ${{ env.IMAGE_PREFIX }}/web:latest
 
+            # Run DB migration BEFORE restarting the API
+            echo "Running DB migrations..."
+            docker run --rm \
+              --env-file /opt/tenderfish/.env \
+              --network host \
+              -w /app/packages/db \
+              ${{ env.IMAGE_PREFIX }}/api:${{ github.sha }} \
+              npx drizzle-kit push --force
+            echo "DB migrations complete"
+
             # Rolling restart (zero-downtime for Caddy)
             docker compose -f docker-compose.production.yml up -d --no-build --force-recreate api web
 
