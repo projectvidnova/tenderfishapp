@@ -77,7 +77,7 @@ export default function ResponsibilitiesPage() {
       const params = new URLSearchParams();
       if (lphFilter !== "all") params.set("lph", lphFilter);
       if (showUnassigned) params.set("unassigned", "true");
-      const res = await fetch(`${API}/api/projects/${id}/responsibilities?${params}`);
+      const res = await fetch(`${API}/api/projects/${id}/responsibilities?${params}`, { credentials: "include" });
       if (res.ok) {
         const json = await res.json();
         setRows(json.data.rows);
@@ -97,6 +97,7 @@ export default function ResponsibilitiesPage() {
     ));
 
     await fetch(`${API}/api/projects/${id}/tasks/${row.id}/raci`, {
+      credentials: "include",
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),

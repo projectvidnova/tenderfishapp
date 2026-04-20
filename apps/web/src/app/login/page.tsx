@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
-import { config } from "@/lib/config";
+import { signIn } from "@/lib/auth-client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,20 +20,14 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const res = await fetch(`${config.apiUrl}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+      const result = await signIn.email({
+        email: form.email,
+        password: form.password,
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Login failed");
+      if (result.error) {
+        setError(result.error.message || "Login failed");
         return;
-      }
-
-      if (data.token) {
-        localStorage.setItem("tf_token", data.token);
       }
 
       router.push("/dashboard");
@@ -42,6 +36,14 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleGoogleLogin() {
+    await signIn.social({ provider: "google", callbackURL: "/dashboard" });
+  }
+
+  async function handleMicrosoftLogin() {
+    await signIn.social({ provider: "microsoft", callbackURL: "/dashboard" });
   }
 
   return (
@@ -86,6 +88,7 @@ export default function LoginPage() {
 
           <button
             type="button"
+            onClick={handleGoogleLogin}
             className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-border bg-white text-sm font-medium text-text-primary hover:bg-bg-inset transition-colors rounded-md"
           >
             <svg width="18" height="18" viewBox="0 0 24 24">
@@ -107,6 +110,20 @@ export default function LoginPage() {
               />
             </svg>
             Continue with Google
+          </button>
+
+          <button
+            type="button"
+            onClick={handleMicrosoftLogin}
+            className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-border bg-white text-sm font-medium text-text-primary hover:bg-bg-inset transition-colors rounded-md"
+          >
+            <svg width="18" height="18" viewBox="0 0 23 23">
+              <rect x="1" y="1" width="10" height="10" fill="#f25022" />
+              <rect x="12" y="1" width="10" height="10" fill="#7fba00" />
+              <rect x="1" y="12" width="10" height="10" fill="#00a4ef" />
+              <rect x="12" y="12" width="10" height="10" fill="#ffb900" />
+            </svg>
+            Continue with Microsoft
           </button>
 
           <div className="flex items-center gap-3">

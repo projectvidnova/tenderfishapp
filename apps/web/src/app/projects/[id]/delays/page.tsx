@@ -61,7 +61,7 @@ export default function DelaysPage() {
 
   const fetchDelays = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/projects/${id}/delays`);
+      const res = await fetch(`${API}/api/projects/${id}/delays`, { credentials: "include" });
       if (res.ok) {
         const json = await res.json();
         setDelays(json.data);
@@ -76,6 +76,7 @@ export default function DelaysPage() {
   async function createDelay() {
     if (!form.eventDate || !form.reportedBy || !form.description) return;
     await fetch(`${API}/api/projects/${id}/delays`, {
+      credentials: "include",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
@@ -87,6 +88,7 @@ export default function DelaysPage() {
 
   async function updateDelay(delayId: string, updates: Record<string, unknown>) {
     await fetch(`${API}/api/projects/${id}/delays/${delayId}`, {
+      credentials: "include",
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),

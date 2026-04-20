@@ -23,14 +23,14 @@ async function seedDev() {
   `);
 
   await db.execute(sql`
-    INSERT INTO users (id, workspace_id, clerk_id, email, name, role)
+    INSERT INTO users (id, workspace_id, email, name, role, email_verified)
     VALUES (
       ${DEV_USER_ID},
       ${DEV_WORKSPACE_ID},
-      'dev-clerk-001',
       'dev@tenderfish.local',
       'Dev Admin',
-      'architect_admin'
+      'architect_admin',
+      true
     )
     ON CONFLICT (id) DO NOTHING
   `);

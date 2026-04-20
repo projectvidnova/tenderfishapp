@@ -117,7 +117,7 @@ export default function PhasesPage() {
 
   const fetchPhases = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/projects/${id}/phases/detail`);
+      const res = await fetch(`${API}/api/projects/${id}/phases/detail`, { credentials: "include" });
       if (res.ok) {
         const json = await res.json();
         setPhases(json.data);
@@ -128,7 +128,7 @@ export default function PhasesPage() {
   const fetchTasks = useCallback(async () => {
     try {
       const type = TAB_TYPE_MAP[innerTab];
-      const res = await fetch(`${API}/api/projects/${id}/tasks?lph=${selectedLph}&type=${type}`);
+      const res = await fetch(`${API}/api/projects/${id}/tasks?lph=${selectedLph}&type=${type}`, { credentials: "include" });
       if (res.ok) {
         const json = await res.json();
         setTasks(json.data);
@@ -148,6 +148,7 @@ export default function PhasesPage() {
     setSaving(true);
     try {
       await fetch(`${API}/api/projects/${id}/phases/${selectedLph}`, {
+        credentials: "include",
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [field]: value }),
@@ -161,6 +162,7 @@ export default function PhasesPage() {
     setSaving(true);
     try {
       await fetch(`${API}/api/projects/${id}/tasks/${taskId}`, {
+        credentials: "include",
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
@@ -186,6 +188,7 @@ export default function PhasesPage() {
       body.documentRequiredFor = newTask.documentRequiredFor || undefined;
     }
     await fetch(`${API}/api/projects/${id}/tasks`, {
+      credentials: "include",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -196,7 +199,7 @@ export default function PhasesPage() {
   }
 
   async function deleteTask(taskId: string) {
-    await fetch(`${API}/api/projects/${id}/tasks/${taskId}`, { method: "DELETE" });
+    await fetch(`${API}/api/projects/${id}/tasks/${taskId}`, { method: "DELETE" , credentials: "include" });
     fetchTasks();
   }
 

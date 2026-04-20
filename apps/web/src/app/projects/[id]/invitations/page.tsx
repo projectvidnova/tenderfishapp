@@ -65,7 +65,7 @@ export default function InvitationsPage() {
   const [form, setForm] = useState({ email: "", role: "team_member", message: "" });
 
   const fetchInvitations = useCallback(async () => {
-    const res = await fetch(`${API}/api/projects/${id}/invitations`);
+    const res = await fetch(`${API}/api/projects/${id}/invitations`, { credentials: "include" });
     const json = await res.json();
     setInvitations(json.data || []);
     setLoading(false);
@@ -76,6 +76,7 @@ export default function InvitationsPage() {
   async function sendInvitation() {
     if (!form.email.trim()) return;
     await fetch(`${API}/api/projects/${id}/invitations`, {
+      credentials: "include",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
@@ -86,7 +87,7 @@ export default function InvitationsPage() {
   }
 
   async function revokeInvitation(invId: string) {
-    await fetch(`${API}/api/projects/${id}/invitations/${invId}`, { method: "DELETE" });
+    await fetch(`${API}/api/projects/${id}/invitations/${invId}`, { method: "DELETE" , credentials: "include" });
     fetchInvitations();
   }
 

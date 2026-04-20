@@ -25,13 +25,14 @@ export type WorkspacePlan = "free" | "starter" | "professional" | "enterprise";
 
 export interface User {
   id: string;
-  workspaceId: string;
-  clerkId: string;
+  workspaceId: string | null;
   email: string;
   name: string;
+  emailVerified: boolean;
+  image?: string | null;
   role: WorkspaceRole;
-  avatarUrl?: string;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 export type WorkspaceRole = "architect_admin" | "project_lead" | "team_member";

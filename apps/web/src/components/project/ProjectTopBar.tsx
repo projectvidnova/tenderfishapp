@@ -35,16 +35,10 @@ export function ProjectTopBar({ projectId }: { projectId: string }) {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
 
-  function getToken(): string | null {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("tf_token");
-  }
-
   const fetchProject = useCallback(async () => {
-    const token = getToken();
     try {
       const res = await fetch(`${API}/api/projects/${projectId}/overview`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
       });
       if (res.ok) {
         const { data } = await res.json();
@@ -69,14 +63,13 @@ export function ProjectTopBar({ projectId }: { projectId: string }) {
 
   async function saveName() {
     if (!editName.trim() || !project) return;
-    const token = getToken();
     try {
       await fetch(`${API}/api/projects/${projectId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        credentials: "include",
         body: JSON.stringify({ name: editName.trim() }),
       });
       setProject({ ...project, name: editName.trim() });

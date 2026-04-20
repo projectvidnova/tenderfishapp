@@ -12,11 +12,6 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   recalled: { label: "Recalled", cls: "bg-status-danger-bg text-status-reject" },
 };
 
-function getToken() {
-  if (typeof window !== "undefined") return localStorage.getItem("tf_token") || "";
-  return "";
-}
-
 type TenderRelease = {
   id: string;
   status: string;
@@ -46,7 +41,7 @@ export default function TenderReleasePage() {
   const fetchRelease = useCallback(async () => {
     try {
       const res = await fetch(`${API}/api/projects/${id}/tender-release`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: "include",
       });
       if (res.ok) {
         const json = await res.json();
@@ -61,7 +56,8 @@ export default function TenderReleasePage() {
   async function createRelease() {
     const res = await fetch(`${API}/api/projects/${id}/tender-release`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ notes: notes || null }),
     });
     if (res.ok) { setNotes(""); fetchRelease(); }
@@ -73,7 +69,8 @@ export default function TenderReleasePage() {
     if (reason) body.recallReason = reason;
     await fetch(`${API}/api/projects/${id}/tender-release/${release.id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify(body),
     });
     setShowRecall(false);

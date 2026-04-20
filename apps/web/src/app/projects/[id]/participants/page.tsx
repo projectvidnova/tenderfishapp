@@ -27,11 +27,6 @@ const ROLE_OPTIONS = [
   "Other",
 ];
 
-function getToken() {
-  if (typeof window !== "undefined") return localStorage.getItem("tf_token") || "";
-  return "";
-}
-
 type Participant = {
   id: string;
   name: string;
@@ -57,7 +52,7 @@ export default function ParticipantsPage() {
   const fetchParticipants = useCallback(async () => {
     try {
       const res = await fetch(`${API}/api/projects/${id}/participants`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: "include",
       });
       if (res.ok) {
         const json = await res.json();
@@ -72,7 +67,8 @@ export default function ParticipantsPage() {
   async function create() {
     const res = await fetch(`${API}/api/projects/${id}/participants`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({
         name: form.name,
         role: form.role,
@@ -87,7 +83,8 @@ export default function ParticipantsPage() {
     if (!editingId) return;
     const res = await fetch(`${API}/api/projects/${id}/participants/${editingId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({
         name: form.name,
         role: form.role,
@@ -101,7 +98,7 @@ export default function ParticipantsPage() {
   async function confirmRole(participantId: string) {
     await fetch(`${API}/api/projects/${id}/participants/${participantId}/confirm`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${getToken()}` },
+      credentials: "include",
     });
     fetchParticipants();
   }
@@ -109,7 +106,7 @@ export default function ParticipantsPage() {
   async function remove(participantId: string) {
     await fetch(`${API}/api/projects/${id}/participants/${participantId}`, {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${getToken()}` },
+      credentials: "include",
     });
     fetchParticipants();
   }

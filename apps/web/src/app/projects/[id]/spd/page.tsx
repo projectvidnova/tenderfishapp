@@ -22,11 +22,6 @@ const PROJECT_TYPES = [
   "Mixed Use",
 ];
 
-function getToken() {
-  if (typeof window !== "undefined") return localStorage.getItem("tf_token") || "";
-  return "";
-}
-
 type SPDVersion = {
   id: string;
   version: number;
@@ -69,7 +64,7 @@ export default function SPDPage() {
   const fetchSPD = useCallback(async () => {
     try {
       const res = await fetch(`${API}/api/projects/${id}/spd`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: "include",
       });
       if (res.ok) {
         const json = await res.json();
@@ -82,7 +77,7 @@ export default function SPDPage() {
   const fetchVersions = useCallback(async () => {
     try {
       const res = await fetch(`${API}/api/projects/${id}/spd/versions`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: "include",
       });
       if (res.ok) {
         const json = await res.json();
@@ -96,7 +91,8 @@ export default function SPDPage() {
   async function createSPD() {
     const res = await fetch(`${API}/api/projects/${id}/spd`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({
         ...form,
         participants: participantsInput ? participantsInput.split("\n").filter(Boolean).map((line) => {
@@ -116,7 +112,7 @@ export default function SPDPage() {
   async function approveSPD(spdId: string) {
     await fetch(`${API}/api/projects/${id}/spd/${spdId}/approve`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${getToken()}` },
+      credentials: "include",
     });
     fetchSPD();
   }

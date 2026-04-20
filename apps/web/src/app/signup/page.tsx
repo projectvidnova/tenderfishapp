@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
+import { signUp, signIn } from "@/lib/auth-client";
 import { config } from "@/lib/config";
 
 function getPasswordStrength(pw: string): {
@@ -56,28 +57,46 @@ export default function SignupPage() {
     setError("");
 
     try {
-      const res = await fetch(`${config.apiUrl}/api/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+      // 1. Sign up with Better Auth (creates user + credential account)
+      const result = await signUp.email({
+        email: form.email,
+        password: form.password,
+        name: form.name,
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Signup failed");
+      if (result.error) {
+        setError(result.error.message || "Signup failed");
         return;
       }
 
-      if (data.token) {
-        localStorage.setItem("tf_token", data.token);
+      // 2. Create workspace for the new user
+      const wsRes = await fetch(`${config.apiUrl}/api/auth/setup-workspace`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ company: form.company, country: form.country }),
+      });
+
+      if (!wsRes.ok) {
+        const wsData = await wsRes.json();
+        setError(wsData.error || "Failed to create workspace");
+        return;
       }
 
-      router.push("/onboarding/workspace");
+      router.push("/dashboard");
     } catch {
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleGoogleSignup() {
+    await signIn.social({ provider: "google", callbackURL: "/onboarding/workspace" });
+  }
+
+  async function handleMicrosoftSignup() {
+    await signIn.social({ provider: "microsoft", callbackURL: "/onboarding/workspace" });
   }
 
   function set(field: string) {
@@ -128,9 +147,10 @@ export default function SignupPage() {
             </p>
           </div>
 
-          {/* Google OAuth */}
+          {/* Social login */}
           <button
             type="button"
+            onClick={handleGoogleSignup}
             className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-border bg-white text-sm font-medium text-text-primary hover:bg-bg-inset transition-colors rounded-md"
           >
             <svg width="18" height="18" viewBox="0 0 24 24">
@@ -152,6 +172,20 @@ export default function SignupPage() {
               />
             </svg>
             Continue with Google
+          </button>
+
+          <button
+            type="button"
+            onClick={handleMicrosoftSignup}
+            className="w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-border bg-white text-sm font-medium text-text-primary hover:bg-bg-inset transition-colors rounded-md"
+          >
+            <svg width="18" height="18" viewBox="0 0 23 23">
+              <rect x="1" y="1" width="10" height="10" fill="#f25022" />
+              <rect x="12" y="1" width="10" height="10" fill="#7fba00" />
+              <rect x="1" y="12" width="10" height="10" fill="#00a4ef" />
+              <rect x="12" y="12" width="10" height="10" fill="#ffb900" />
+            </svg>
+            Continue with Microsoft
           </button>
 
           <div className="flex items-center gap-3">

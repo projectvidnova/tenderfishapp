@@ -50,7 +50,7 @@ export default function InboxPage() {
     const params = new URLSearchParams();
     if (tab !== "all") params.set("status", tab);
     if (search) params.set("search", search);
-    const res = await fetch(`${API}/api/inbox?${params}`);
+    const res = await fetch(`${API}/api/inbox?${params}`, { credentials: "include" });
     const json = await res.json();
     setMessages(json.data || []);
     setLoading(false);
@@ -60,6 +60,7 @@ export default function InboxPage() {
 
   async function updateMessage(msgId: string, updates: { status?: string; projectId?: string }) {
     await fetch(`${API}/api/inbox/${msgId}`, {
+      credentials: "include",
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),

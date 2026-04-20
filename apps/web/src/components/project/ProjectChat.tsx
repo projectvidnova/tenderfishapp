@@ -6,11 +6,6 @@ import { config } from "@/lib/config";
 
 const API = config.apiUrl;
 
-function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("tf_token");
-}
-
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -37,13 +32,12 @@ export function ProjectChat({ projectId }: { projectId: string }) {
     setLoading(true);
 
     try {
-      const token = getToken();
       const res = await fetch(`${API}/api/projects/${projectId}/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        credentials: "include",
         body: JSON.stringify({ message: userMsg.content, history: messages }),
       });
       if (res.ok) {

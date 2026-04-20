@@ -78,11 +78,6 @@ interface OverviewData {
   actionItems: ActionItem[];
 }
 
-function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("tf_token");
-}
-
 export default function ProjectOverviewPage() {
   const params = useParams();
   const projectId = params.id as string;
@@ -90,10 +85,9 @@ export default function ProjectOverviewPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
-    const token = getToken();
     try {
       const res = await fetch(`${API}/api/projects/${projectId}/overview`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
       });
       if (res.ok) {
         const json = await res.json();
@@ -430,10 +424,6 @@ function EditableField({
   const [editValue, setEditValue] = useState(value);
 
   async function save() {
-    const token =
-      typeof window !== "undefined"
-        ? localStorage.getItem("tf_token")
-        : null;
     try {
       await fetch(
         `${API}/api/projects/${projectId}`,
@@ -441,8 +431,8 @@ function EditableField({
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
+          credentials: "include",
           body: JSON.stringify({ [field]: editValue }),
         }
       );

@@ -27,8 +27,16 @@ const envSchema = z.object({
   // Redis
   REDIS_URL: z.string().default("redis://localhost:6379"),
 
-  // Clerk auth
-  CLERK_SECRET_KEY: z.string().optional(),
+  // Better Auth
+  BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),
+
+  // Social login (optional — only needed if you want social sign-in)
+  GOOGLE_CLIENT_ID: z.string().optional().transform(v => v === "" ? undefined : v),
+  GOOGLE_CLIENT_SECRET: z.string().optional().transform(v => v === "" ? undefined : v),
+  MICROSOFT_CLIENT_ID: z.string().optional().transform(v => v === "" ? undefined : v),
+  MICROSOFT_CLIENT_SECRET: z.string().optional().transform(v => v === "" ? undefined : v),
+  GITHUB_CLIENT_ID: z.string().optional().transform(v => v === "" ? undefined : v),
+  GITHUB_CLIENT_SECRET: z.string().optional().transform(v => v === "" ? undefined : v),
 
   // S3-compatible storage (IONOS Object Storage)
   S3_ENDPOINT: z.string().url().optional(),

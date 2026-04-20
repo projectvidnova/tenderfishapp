@@ -56,7 +56,7 @@ export default function ApprovalsPage() {
   const fetchApprovals = useCallback(async () => {
     try {
       const params = activeType !== "all" ? `?type=${activeType}` : "";
-      const res = await fetch(`${API}/api/projects/${id}/approvals${params}`);
+      const res = await fetch(`${API}/api/projects/${id}/approvals${params}`, { credentials: "include" });
       if (res.ok) setApprovals((await res.json()).data);
     } catch { /* ignore */ }
     setLoading(false);
@@ -67,6 +67,7 @@ export default function ApprovalsPage() {
   async function createApproval() {
     if (!newApproval.name.trim() || !newApproval.type) return;
     await fetch(`${API}/api/projects/${id}/approvals`, {
+      credentials: "include",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -83,6 +84,7 @@ export default function ApprovalsPage() {
 
   async function updateApprovalStatus(approvalId: string, status: string, notes?: string) {
     await fetch(`${API}/api/projects/${id}/approvals/${approvalId}`, {
+      credentials: "include",
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status, notes }),

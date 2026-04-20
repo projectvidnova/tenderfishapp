@@ -60,20 +60,14 @@ interface DashboardData {
   blockedProjects: BlockedProject[];
 }
 
-function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("tf_token");
-}
-
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchDashboard = useCallback(async () => {
-    const token = getToken();
     try {
       const res = await fetch(`${API}/api/dashboard`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
       });
       if (res.ok) {
         const json = await res.json();

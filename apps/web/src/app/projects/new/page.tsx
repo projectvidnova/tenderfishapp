@@ -62,11 +62,6 @@ export default function NewProjectPage() {
 
   const canProceedStep1 = files.length > 0 || briefingText.trim().length > 0;
 
-  function getToken(): string | null {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("tf_token");
-  }
-
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setIsDragOver(false);
@@ -106,7 +101,6 @@ export default function NewProjectPage() {
     setStep(3);
     setJobError(null);
 
-    const token = getToken();
     const form = new FormData();
 
     // Attach files
@@ -124,7 +118,7 @@ export default function NewProjectPage() {
     try {
       const res = await fetch(`${API}/api/projects/intake`, {
         method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
         body: form,
       });
 
@@ -146,10 +140,9 @@ export default function NewProjectPage() {
   }, [files, formData, briefingText]);
 
   async function pollJobStatus(jId: string) {
-    const token = getToken();
     try {
       const res = await fetch(`${API}/api/jobs/${jId}/status`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
       });
       if (!res.ok) return;
 
@@ -172,10 +165,9 @@ export default function NewProjectPage() {
   }
 
   async function loadProjectFacts(pId: string) {
-    const token = getToken();
     try {
       const res = await fetch(`${API}/api/projects/${pId}/facts`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
       });
       if (res.ok) {
         const { data } = await res.json();
@@ -198,7 +190,6 @@ export default function NewProjectPage() {
   async function confirmAndCreate() {
     if (!projectId) return;
     setIsSubmitting(true);
-    const token = getToken();
 
     const factsPayload = facts.map((f) => ({
       id: f.id,
@@ -211,8 +202,8 @@ export default function NewProjectPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        credentials: "include",
         body: JSON.stringify({ facts: factsPayload }),
       });
 

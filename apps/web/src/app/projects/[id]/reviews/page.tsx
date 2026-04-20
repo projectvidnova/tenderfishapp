@@ -84,7 +84,7 @@ export default function ReviewsPage() {
   const [devForm, setDevForm] = useState({ description: "", severity: "minor", designImpact: "", technicalImpact: "", scheduleImpact: "", status: "open" });
 
   const fetchReviews = useCallback(async () => {
-    const res = await fetch(`${API}/api/projects/${id}/reviews`);
+    const res = await fetch(`${API}/api/projects/${id}/reviews`, { credentials: "include" });
     const json = await res.json();
     setReviews(json.data || []);
     setLoading(false);
@@ -95,6 +95,7 @@ export default function ReviewsPage() {
   async function createSubmission() {
     if (!form.title.trim() || !form.submittedBy || !form.submissionDate) return;
     await fetch(`${API}/api/projects/${id}/reviews`, {
+      credentials: "include",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, type: "shop_drawing" }),
@@ -106,6 +107,7 @@ export default function ReviewsPage() {
 
   async function updateStatus(reviewId: string, status: string) {
     await fetch(`${API}/api/projects/${id}/reviews/${reviewId}`, {
+      credentials: "include",
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
@@ -116,6 +118,7 @@ export default function ReviewsPage() {
   async function submitReview(reviewId: string) {
     if (!reviewOutcome) return;
     await fetch(`${API}/api/projects/${id}/reviews/${reviewId}`, {
+      credentials: "include",
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reviewOutcome, reviewComment }),
@@ -139,6 +142,7 @@ export default function ReviewsPage() {
     };
     const deviations = [...current, newDev];
     await fetch(`${API}/api/projects/${id}/reviews/${reviewId}`, {
+      credentials: "include",
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ deviations }),
@@ -147,7 +151,7 @@ export default function ReviewsPage() {
     setDevForm({ description: "", severity: "minor", designImpact: "", technicalImpact: "", scheduleImpact: "", status: "open" });
     fetchReviews();
     // Refresh selected
-    const res = await fetch(`${API}/api/projects/${id}/reviews`);
+    const res = await fetch(`${API}/api/projects/${id}/reviews`, { credentials: "include" });
     const json = await res.json();
     const updated = (json.data as Review[]).find((r: Review) => r.id === reviewId);
     if (updated) setSelected(updated);

@@ -1,45 +1,81 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { fromNodeHeaders } from "better-auth/node";
 import { db, users, workspaces } from "@tenderfish/db";
 import { eq } from "drizzle-orm";
 import { slugify } from "@tenderfish/shared";
 import crypto from "crypto";
-import { signupSchema, loginSchema, validateBody } from "../lib/validation";
+import { getAuth } from "../lib/auth";
 import { getEnv } from "../lib/env";
 
 export async function authRoutes(app: FastifyInstance) {
   const env = getEnv();
 
-  // POST /api/auth/signup — create user + workspace
-  app.post("/auth/signup", {
-    config: { rateLimit: { max: env.AUTH_RATE_LIMIT_MAX, timeWindow: env.AUTH_RATE_LIMIT_WINDOW } },
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const parsed = validateBody(signupSchema, request.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: parsed.error });
-    }
-    const body = parsed.data;
+  // ── Better Auth catch-all handler ─────────────────────────
+  // Handles: sign-up/email, sign-in/email, sign-in/social, sign-out,
+  //          callback/:id, session, etc.
+  app.route({
+    method: ["GET", "POST"],
+    url: "/auth/*",
+    handler: async (request, reply) => {
+      try {
+        const auth = getAuth();
+        const url = new URL(request.url, `http://${request.headers.host}`);
+        const headers = fromNodeHeaders(request.headers);
+        const req = new Request(url.toString(), {
+          method: request.method,
+          headers,
+          ...(request.body ? { body: JSON.stringify(request.body) } : {}),
+        });
 
-    // Check if email already exists
-    const existingUser = await db.query.users.findFirst({
-      where: eq(users.email, body.email.toLowerCase().trim()),
+        const response = await auth.handler(req);
+
+        reply.status(response.status);
+        response.headers.forEach((value, key) => reply.header(key, value));
+        return reply.send(response.body ? await response.text() : null);
+      } catch (error) {
+        request.log.error(error, "Auth handler error");
+        return reply.status(500).send({ error: "Internal authentication error" });
+      }
+    },
+  });
+
+  // ── POST /api/auth/setup-workspace ────────────────────────
+  // Called after sign-up to create the user's workspace
+  app.post("/auth/setup-workspace", async (request: FastifyRequest, reply: FastifyReply) => {
+    const auth = getAuth();
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(request.headers),
     });
 
-    if (existingUser) {
-      return reply.status(409).send({ error: "An account with this email already exists" });
+    if (!session) {
+      return reply.status(401).send({ error: "Unauthorized" });
+    }
+
+    // Check if user already has a workspace
+    const existingUser = await db.query.users.findFirst({
+      where: eq(users.id, session.user.id),
+    });
+
+    if (existingUser?.workspaceId) {
+      const workspace = await db.query.workspaces.findFirst({
+        where: eq(workspaces.id, existingUser.workspaceId),
+      });
+      return { data: { workspace } };
+    }
+
+    const body = request.body as { company: string; country?: string };
+    if (!body?.company?.trim()) {
+      return reply.status(400).send({ error: "company is required" });
     }
 
     const slug = slugify(body.company);
-
-    // Check slug uniqueness
     const existingWorkspace = await db.query.workspaces.findFirst({
       where: eq(workspaces.slug, slug),
     });
-
     const finalSlug = existingWorkspace
       ? `${slug}-${crypto.randomBytes(3).toString("hex")}`
       : slug;
 
-    // Create workspace
     const [workspace] = await db
       .insert(workspaces)
       .values({
@@ -50,100 +86,42 @@ export async function authRoutes(app: FastifyInstance) {
       })
       .returning();
 
-    // In dev mode, we use a mock Clerk ID. In production, we'd create the Clerk
-    // user first and use their real ID here.
-    const clerkId = process.env.CLERK_SECRET_KEY
-      ? `clerk_pending_${crypto.randomUUID()}`
-      : `dev_clerk_${crypto.randomBytes(8).toString("hex")}`;
-
-    // Create user
-    const [user] = await db
-      .insert(users)
-      .values({
-        workspaceId: workspace.id,
-        clerkId,
-        email: body.email.toLowerCase().trim(),
-        name: body.name.trim(),
-        role: "architect_admin",
-      })
-      .returning();
-
-    // Generate a simple dev token (in production this would be a Clerk session)
-    const token = Buffer.from(
-      JSON.stringify({
-        userId: user.id,
-        clerkId: user.clerkId,
-        workspaceId: workspace.id,
-        role: user.role,
-      })
-    ).toString("base64url");
+    // Link user to workspace
+    await db
+      .update(users)
+      .set({ workspaceId: workspace.id, role: "architect_admin" })
+      .where(eq(users.id, session.user.id));
 
     return reply.status(201).send({
-      data: {
-        user: { id: user.id, email: user.email, name: user.name, role: user.role },
-        workspace: { id: workspace.id, name: workspace.name, slug: workspace.slug },
-      },
-      token,
+      data: { workspace: { id: workspace.id, name: workspace.name, slug: workspace.slug } },
     });
   });
 
-  // POST /api/auth/login — authenticate user
-  app.post("/auth/login", {
-    config: { rateLimit: { max: 10, timeWindow: "15 minutes" } },
-  }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const parsed = validateBody(loginSchema, request.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: parsed.error });
-    }
-    const body = parsed.data;
-
-    // Find user by email
-    const user = await db.query.users.findFirst({
-      where: eq(users.email, body.email.toLowerCase().trim()),
-    });
-
-    if (!user) {
-      return reply.status(401).send({ error: "Invalid email or password" });
-    }
-
-    // In dev mode, accept any password. In production, Clerk handles password verification.
-    if (process.env.CLERK_SECRET_KEY) {
-      return reply.status(401).send({ error: "Use Clerk for authentication in production" });
-    }
-
-    // Generate dev token
-    const token = Buffer.from(
-      JSON.stringify({
-        userId: user.id,
-        clerkId: user.clerkId,
-        workspaceId: user.workspaceId,
-        role: user.role,
-      })
-    ).toString("base64url");
-
-    return {
-      data: { id: user.id, email: user.email, name: user.name, role: user.role },
-      token,
-    };
-  });
-
-  // GET /api/auth/me — current user info
+  // ── GET /api/auth/me ──────────────────────────────────────
+  // Returns current user + workspace info
   app.get("/auth/me", async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!request.auth) {
+    const auth = getAuth();
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(request.headers),
+    });
+
+    if (!session) {
       return reply.status(401).send({ error: "Unauthorized" });
     }
 
     const user = await db.query.users.findFirst({
-      where: eq(users.id, request.auth.userId),
+      where: eq(users.id, session.user.id),
     });
 
     if (!user) {
       return reply.status(404).send({ error: "User not found" });
     }
 
-    const workspace = await db.query.workspaces.findFirst({
-      where: eq(workspaces.id, user.workspaceId),
-    });
+    const workspace = user.workspaceId
+      ? await db.query.workspaces.findFirst({
+          where: eq(workspaces.id, user.workspaceId),
+        })
+      : null;
 
     return {
       data: {

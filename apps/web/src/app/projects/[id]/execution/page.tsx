@@ -100,7 +100,7 @@ export default function ExecutionPage() {
   const [punchForm, setPunchForm] = useState({ description: "", packageName: "", contractor: "", targetDate: "", owner: "" });
 
   const fetchSubmissions = useCallback(async () => {
-    const res = await fetch(`${API}/api/projects/${id}/execution`);
+    const res = await fetch(`${API}/api/projects/${id}/execution`, { credentials: "include" });
     const json = await res.json();
     setSubmissions(json.data || []);
     setLoading(false);
@@ -111,6 +111,7 @@ export default function ExecutionPage() {
   async function createSubmission() {
     if (!form.title.trim() || !form.submittedBy || !form.submissionDate) return;
     await fetch(`${API}/api/projects/${id}/execution`, {
+      credentials: "include",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -129,6 +130,7 @@ export default function ExecutionPage() {
   async function submitReviewAction(submissionId: string) {
     if (!outcome) return;
     await fetch(`${API}/api/projects/${id}/execution/${submissionId}`, {
+      credentials: "include",
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

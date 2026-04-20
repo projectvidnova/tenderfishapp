@@ -25,11 +25,6 @@ interface ProjectVersion {
   createdAt: string;
 }
 
-function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("tf_token");
-}
-
 export default function VersionsPage() {
   const params = useParams();
   const projectId = params.id as string;
@@ -39,10 +34,9 @@ export default function VersionsPage() {
   const [label, setLabel] = useState("");
 
   const fetchVersions = useCallback(async () => {
-    const token = getToken();
     try {
       const res = await fetch(`${API}/api/projects/${projectId}/versions`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
       });
       if (res.ok) {
         const json = await res.json();
@@ -59,14 +53,13 @@ export default function VersionsPage() {
 
   async function createVersion() {
     if (!label.trim()) return;
-    const token = getToken();
     try {
       await fetch(`${API}/api/projects/${projectId}/versions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        credentials: "include",
         body: JSON.stringify({ label }),
       });
       setLabel("");

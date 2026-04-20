@@ -48,7 +48,7 @@ export default function GatesPage() {
 
   const fetchGates = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/projects/${id}/gates/detail`);
+      const res = await fetch(`${API}/api/projects/${id}/gates/detail`, { credentials: "include" });
       if (res.ok) setGates((await res.json()).data);
     } catch { /* ignore */ }
     setLoading(false);
@@ -58,6 +58,7 @@ export default function GatesPage() {
 
   async function toggleCriterion(gate: string, key: string, met: boolean) {
     await fetch(`${API}/api/projects/${id}/gates/${gate}/criteria/${key}`, {
+      credentials: "include",
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ met }),
@@ -66,7 +67,7 @@ export default function GatesPage() {
   }
 
   async function completeGate(gate: string) {
-    const res = await fetch(`${API}/api/projects/${id}/gates/${gate}/complete`, { method: "POST" });
+    const res = await fetch(`${API}/api/projects/${id}/gates/${gate}/complete`, { method: "POST", credentials: "include" });
     if (!res.ok) {
       const err = await res.json();
       alert(err.message || err.error);
@@ -78,6 +79,7 @@ export default function GatesPage() {
   async function submitOverride() {
     if (!overrideGate || overrideReason.trim().length < 50 || !overrideAck) return;
     const res = await fetch(`${API}/api/projects/${id}/gates/${overrideGate}/override`, {
+      credentials: "include",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reason: overrideReason.trim() }),

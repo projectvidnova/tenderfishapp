@@ -4,7 +4,7 @@ import cookie from "@fastify/cookie";
 import multipart from "@fastify/multipart";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
-import { clerkPlugin } from "./middleware/clerk";
+import { authPlugin } from "./middleware/auth";
 import { validateEnv } from "./lib/env";
 import { workspaceRoutes } from "./routes/workspaces";
 import { projectRoutes } from "./routes/projects";
@@ -115,7 +115,7 @@ async function buildApp() {
   });
 
   // Auth middleware
-  await app.register(clerkPlugin);
+  await app.register(authPlugin);
 
   // Routes
   await app.register(healthRoutes, { prefix: "/api" });

@@ -22,7 +22,7 @@ export default function InviteAcceptPage() {
   useEffect(() => {
     async function verifyToken() {
       try {
-        const res = await fetch(`${API}/api/invitations/${token}/verify`);
+        const res = await fetch(`${API}/api/invitations/${token}/verify`, { credentials: "include" });
         const data = await res.json();
         if (res.ok) {
           setInvite(data.data);
@@ -42,13 +42,12 @@ export default function InviteAcceptPage() {
   async function handleAccept() {
     setAccepting(true);
     try {
-      const authToken = localStorage.getItem("tf_token");
       const res = await fetch(`${API}/api/invitations/${token}/accept`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         },
+        credentials: "include",
       });
 
       if (res.ok) {

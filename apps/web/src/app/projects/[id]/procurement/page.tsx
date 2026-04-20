@@ -67,7 +67,7 @@ export default function ProcurementPage() {
 
   const fetchPackages = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/projects/${id}/tender-packages`);
+      const res = await fetch(`${API}/api/projects/${id}/tender-packages`, { credentials: "include" });
       if (res.ok) setPackages((await res.json()).data);
     } catch { /* ignore */ }
     setLoading(false);
@@ -77,7 +77,7 @@ export default function ProcurementPage() {
 
   async function fetchBidders(packageId: string) {
     try {
-      const res = await fetch(`${API}/api/projects/${id}/tender-packages/${packageId}/bidders`);
+      const res = await fetch(`${API}/api/projects/${id}/tender-packages/${packageId}/bidders`, { credentials: "include" });
       if (res.ok) setBidders((await res.json()).data);
     } catch { /* ignore */ }
   }
@@ -85,6 +85,7 @@ export default function ProcurementPage() {
   async function createPackage() {
     if (!pkgForm.name.trim()) return;
     await fetch(`${API}/api/projects/${id}/tender-packages`, {
+      credentials: "include",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(pkgForm),
@@ -97,6 +98,7 @@ export default function ProcurementPage() {
   async function addBidder(packageId: string) {
     if (!bidderForm.company.trim()) return;
     await fetch(`${API}/api/projects/${id}/tender-packages/${packageId}/bidders`, {
+      credentials: "include",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(bidderForm),
@@ -109,6 +111,7 @@ export default function ProcurementPage() {
 
   async function updateBidderStatus(packageId: string, bidderId: string, status: string) {
     await fetch(`${API}/api/projects/${id}/tender-packages/${packageId}/bidders/${bidderId}`, {
+      credentials: "include",
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
@@ -119,6 +122,7 @@ export default function ProcurementPage() {
 
   async function awardBidder(packageId: string, bidderId: string) {
     await fetch(`${API}/api/projects/${id}/tender-packages/${packageId}/bidders/${bidderId}/award`, {
+      credentials: "include",
       method: "POST",
     });
     fetchBidders(packageId);
@@ -126,7 +130,7 @@ export default function ProcurementPage() {
   }
 
   async function deletePackage(packageId: string) {
-    await fetch(`${API}/api/projects/${id}/tender-packages/${packageId}`, { method: "DELETE" });
+    await fetch(`${API}/api/projects/${id}/tender-packages/${packageId}`, { method: "DELETE" , credentials: "include" });
     fetchPackages();
   }
 

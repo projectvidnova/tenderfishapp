@@ -6,11 +6,6 @@ import { Upload, X, Copy, Check, Plus, Trash2 } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-function getToken() {
-  if (typeof window !== "undefined") return localStorage.getItem("tf_token") || "";
-  return "";
-}
-
 export default function OnboardingWizardPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -67,8 +62,8 @@ export default function OnboardingWizardPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
+        credentials: "include",
         body: JSON.stringify(workspace),
       });
       const data = await res.json();
@@ -95,8 +90,8 @@ export default function OnboardingWizardPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${getToken()}`,
           },
+          credentials: "include",
           body: JSON.stringify({ invitations: validInvites }),
         });
       } catch {

@@ -6,10 +6,7 @@ import { config } from "./config";
 
 const API_BASE = config.apiUrl;
 
-function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("tf_token");
-}
+
 
 export class ApiError extends Error {
   constructor(
@@ -40,13 +37,6 @@ async function request<T>(
     ...(options?.headers || {}),
   };
 
-  if (!options?.skipAuth) {
-    const token = getToken();
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-  }
-
   if (body && !(body instanceof FormData)) {
     headers["Content-Type"] = "application/json";
   }
@@ -54,6 +44,7 @@ async function request<T>(
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
+    credentials: "include",
     body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
     signal: options?.signal,
   });
@@ -66,9 +57,8 @@ async function request<T>(
       errorBody = { error: `HTTP ${res.status}`, message: res.statusText };
     }
 
-    // Auto-redirect on 401 (expired/invalid token)
+    // Auto-redirect on 401 (expired/invalid session)
     if (res.status === 401 && typeof window !== "undefined") {
-      localStorage.removeItem("tf_token");
       window.location.href = "/login";
     }
 

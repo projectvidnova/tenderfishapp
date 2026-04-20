@@ -72,7 +72,7 @@ export default function DocumentsPage() {
   const fetchDocs = useCallback(async () => {
     try {
       const params = activeType ? `?type=${encodeURIComponent(activeType)}` : "";
-      const res = await fetch(`${API}/api/projects/${id}/documents${params}`);
+      const res = await fetch(`${API}/api/projects/${id}/documents${params}`, { credentials: "include" });
       if (res.ok) setDocs((await res.json()).data);
     } catch { /* ignore */ }
     setLoading(false);
@@ -83,6 +83,7 @@ export default function DocumentsPage() {
   async function createDoc() {
     if (!form.name.trim()) return;
     await fetch(`${API}/api/projects/${id}/documents`, {
+      credentials: "include",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
@@ -94,6 +95,7 @@ export default function DocumentsPage() {
 
   async function updateStatus(docId: string, status: string) {
     await fetch(`${API}/api/projects/${id}/documents/${docId}`, {
+      credentials: "include",
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
@@ -104,6 +106,7 @@ export default function DocumentsPage() {
 
   async function newVersion(docId: string) {
     await fetch(`${API}/api/projects/${id}/documents/${docId}/versions`, {
+      credentials: "include",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ changesNote: changeNote || undefined }),
@@ -114,7 +117,7 @@ export default function DocumentsPage() {
   }
 
   async function deleteDoc(docId: string) {
-    await fetch(`${API}/api/projects/${id}/documents/${docId}`, { method: "DELETE" });
+    await fetch(`${API}/api/projects/${id}/documents/${docId}`, { method: "DELETE" , credentials: "include" });
     setShowDetail(null);
     fetchDocs();
   }

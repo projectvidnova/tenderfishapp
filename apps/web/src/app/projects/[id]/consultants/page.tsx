@@ -43,7 +43,7 @@ export default function ConsultantsPage() {
 
   const fetchConsultants = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/projects/${id}/consultants`);
+      const res = await fetch(`${API}/api/projects/${id}/consultants`, { credentials: "include" });
       if (res.ok) {
         const json = await res.json();
         setConsultantList(json.data);
@@ -58,6 +58,7 @@ export default function ConsultantsPage() {
   async function addConsultant() {
     if (!form.discipline.trim()) return;
     await fetch(`${API}/api/projects/${id}/consultants`, {
+      credentials: "include",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
@@ -72,6 +73,7 @@ export default function ConsultantsPage() {
       c.key === criterionKey ? { ...c, met: !c.met } : c
     );
     await fetch(`${API}/api/projects/${id}/consultants/${consultant.id}`, {
+      credentials: "include",
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ readinessCriteria: updated }),
@@ -81,6 +83,7 @@ export default function ConsultantsPage() {
 
   async function inviteConsultant(consultantId: string) {
     await fetch(`${API}/api/projects/${id}/consultants/${consultantId}/invite`, {
+      credentials: "include",
       method: "POST",
     });
     setShowInvite(null);
@@ -88,7 +91,7 @@ export default function ConsultantsPage() {
   }
 
   async function deleteConsultant(consultantId: string) {
-    await fetch(`${API}/api/projects/${id}/consultants/${consultantId}`, { method: "DELETE" });
+    await fetch(`${API}/api/projects/${id}/consultants/${consultantId}`, { method: "DELETE" , credentials: "include" });
     fetchConsultants();
   }
 

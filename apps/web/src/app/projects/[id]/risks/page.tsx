@@ -59,7 +59,7 @@ export default function RisksPage() {
 
   const fetchRisks = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/projects/${id}/risks`);
+      const res = await fetch(`${API}/api/projects/${id}/risks`, { credentials: "include" });
       if (res.ok) setRiskList((await res.json()).data);
     } catch { /* ignore */ }
     setLoading(false);
@@ -70,6 +70,7 @@ export default function RisksPage() {
   async function createRisk() {
     if (!form.name.trim()) return;
     await fetch(`${API}/api/projects/${id}/risks`, {
+      credentials: "include",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
@@ -81,6 +82,7 @@ export default function RisksPage() {
 
   async function updateRisk(riskId: string, updates: Partial<Risk>) {
     await fetch(`${API}/api/projects/${id}/risks/${riskId}`, {
+      credentials: "include",
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
@@ -90,7 +92,7 @@ export default function RisksPage() {
   }
 
   async function deleteRisk(riskId: string) {
-    await fetch(`${API}/api/projects/${id}/risks/${riskId}`, { method: "DELETE" });
+    await fetch(`${API}/api/projects/${id}/risks/${riskId}`, { method: "DELETE" , credentials: "include" });
     setShowDetail(null);
     fetchRisks();
   }

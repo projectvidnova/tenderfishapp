@@ -71,8 +71,8 @@ export default function SchedulePage() {
   const fetchData = useCallback(async () => {
     try {
       const [pRes, mRes] = await Promise.all([
-        fetch(`${API}/api/projects/${id}/phases`),
-        fetch(`${API}/api/projects/${id}/milestones`),
+        fetch(`${API}/api/projects/${id}/phases`, { credentials: "include" }),
+        fetch(`${API}/api/projects/${id}/milestones`, { credentials: "include" }),
       ]);
       if (pRes.ok) setPhases((await pRes.json()).data);
       if (mRes.ok) setMilestones((await mRes.json()).data);
@@ -137,6 +137,7 @@ export default function SchedulePage() {
   async function addMilestone() {
     if (!newMilestone.name.trim() || !newMilestone.date) return;
     await fetch(`${API}/api/projects/${id}/milestones`, {
+      credentials: "include",
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -152,7 +153,7 @@ export default function SchedulePage() {
   }
 
   async function deleteMilestone(milestoneId: string) {
-    await fetch(`${API}/api/projects/${id}/milestones/${milestoneId}`, { method: "DELETE" });
+    await fetch(`${API}/api/projects/${id}/milestones/${milestoneId}`, { method: "DELETE", credentials: "include" });
     fetchData();
   }
 

@@ -86,19 +86,19 @@ export default function SettingsPage() {
   );
 
   const fetchWorkspace = useCallback(async () => {
-    const res = await fetch(`${API}/api/settings/workspace`);
+    const res = await fetch(`${API}/api/settings/workspace`, { credentials: "include" });
     const json = await res.json();
     if (json.data) { setWorkspace(json.data); setWsName(json.data.name); }
   }, []);
 
   const fetchTeam = useCallback(async () => {
-    const res = await fetch(`${API}/api/settings/team`);
+    const res = await fetch(`${API}/api/settings/team`, { credentials: "include" });
     const json = await res.json();
     setTeam(json.data || []);
   }, []);
 
   const fetchAudit = useCallback(async () => {
-    const res = await fetch(`${API}/api/settings/audit-log`);
+    const res = await fetch(`${API}/api/settings/audit-log`, { credentials: "include" });
     const json = await res.json();
     setAuditLogs(json.data || []);
   }, []);
@@ -114,6 +114,7 @@ export default function SettingsPage() {
 
   async function saveWorkspace() {
     await fetch(`${API}/api/settings/workspace`, {
+      credentials: "include",
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: wsName }),

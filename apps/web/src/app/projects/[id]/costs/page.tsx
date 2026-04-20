@@ -33,11 +33,6 @@ const DIN276_GROUPS = [
   { code: "700", label: "700 – Baunebenkosten (Fees & Other)" },
 ];
 
-function getToken() {
-  if (typeof window !== "undefined") return localStorage.getItem("tf_token") || "";
-  return "";
-}
-
 function formatEur(cents: number) {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(cents / 100);
 }
@@ -83,7 +78,7 @@ export default function CostsPage() {
   const fetchSnapshots = useCallback(async () => {
     try {
       const res = await fetch(`${API}/api/projects/${id}/cost-snapshots`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: "include",
       });
       if (res.ok) {
         const json = await res.json();
@@ -98,7 +93,8 @@ export default function CostsPage() {
   async function createSnapshot() {
     const res = await fetch(`${API}/api/projects/${id}/cost-snapshots`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify(form),
     });
     if (res.ok) { setShowAdd(false); fetchSnapshots(); setForm({ costStage: "kostenrahmen", snapshotDate: new Date().toISOString().slice(0, 10), notes: "" }); }
@@ -107,7 +103,7 @@ export default function CostsPage() {
   async function openDetail(snap: CostSnapshot) {
     try {
       const res = await fetch(`${API}/api/projects/${id}/cost-snapshots/${snap.id}`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        credentials: "include",
       });
       if (res.ok) {
         const json = await res.json();
@@ -120,7 +116,8 @@ export default function CostsPage() {
     if (!showDetail) return;
     const res = await fetch(`${API}/api/projects/${id}/cost-snapshots/${showDetail.id}/line-items`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({
         costGroupCode: itemForm.costGroupCode,
         costGroupLevel: 1,
@@ -137,7 +134,8 @@ export default function CostsPage() {
   async function updateStatus(snapId: string, status: string) {
     await fetch(`${API}/api/projects/${id}/cost-snapshots/${snapId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ status }),
     });
     fetchSnapshots();
