@@ -7,4 +7,5 @@ export default {
   dbCredentials: {
     url: process.env.DATABASE_URL!,
   },
+  tablesFilter: ["!pg_*", "!_pg_*"],
 } satisfies Config;

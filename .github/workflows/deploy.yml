@@ -211,23 +211,6 @@ jobs:
               sleep 1
             done
 
-  # ─── Stage 4: DB Migration ─────────────────────
-  migrate:
-    name: Migrate DB
-    needs: deploy
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Run migrations via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.IONOS_HOST }}
-          username: ${{ secrets.IONOS_USER }}
-          key: ${{ secrets.IONOS_SSH_KEY }}
-          script: |
-            cd /opt/tenderfish
-            docker compose -f docker-compose.production.yml exec -T -w /app/packages/db api npx drizzle-kit push
-
   # ─── Stage 5: Smoke Test ───────────────────────
   smoke-test:
     name: Smoke Test

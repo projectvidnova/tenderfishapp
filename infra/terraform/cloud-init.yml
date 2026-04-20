@@ -1,6 +1,18 @@
 #cloud-config
 # Cloud-init for TenderFish VPS — runs on first boot automatically
 
+# Configure network interfaces explicitly (overrides cloud-init DHCP wildcard)
+network:
+  version: 2
+  ethernets:
+    ens6:
+      dhcp4: true
+      dhcp6: false
+    ens7:
+      dhcp4: false
+      addresses:
+        - 192.168.1.11/24
+
 package_update: true
 package_upgrade: true
 
@@ -21,6 +33,9 @@ users:
 
 # Install Docker + set up app directory
 runcmd:
+  # Prevent cloud-init from overwriting network config on future boots
+  - echo "network: {config: disabled}" > /etc/cloud/cloud.cfg.d/99-disable-network.cfg
+  - chmod 600 /etc/netplan/50-cloud-init.yaml
   # Docker GPG key
   - install -m 0755 -d /etc/apt/keyrings
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
