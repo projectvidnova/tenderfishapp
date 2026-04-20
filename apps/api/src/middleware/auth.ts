@@ -2,6 +2,8 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import fp from "fastify-plugin";
 import { fromNodeHeaders } from "better-auth/node";
 import { getAuth } from "../lib/auth";
+import { db, users } from "@tenderfish/db";
+import { eq } from "drizzle-orm";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -43,6 +45,16 @@ async function betterAuthMiddleware(app: FastifyInstance) {
         workspaceId: (session.user as any).workspaceId || "",
         role: (session.user as any).role || "team_member",
       };
+
+      // Session may have stale user data — fetch fresh workspaceId from DB if missing
+      if (!request.auth.workspaceId) {
+        const dbUser = await db.query.users.findFirst({
+          where: eq(users.id, session.user.id),
+          columns: { workspaceId: true, role: true },
+        });
+        request.auth.workspaceId = dbUser?.workspaceId ?? "";
+        if (dbUser?.role) request.auth.role = dbUser.role;
+      }
     } catch {
       return reply.status(401).send({ error: "Unauthorized", message: "Invalid session" });
     }

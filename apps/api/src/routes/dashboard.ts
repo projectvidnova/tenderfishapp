@@ -20,6 +20,11 @@ export async function dashboardRoutes(app: FastifyInstance) {
     }
 
     const wsId = request.auth.workspaceId;
+
+    if (!wsId) {
+      return reply.status(403).send({ error: "No workspace", code: "NO_WORKSPACE" });
+    }
+
     const now = new Date();
     const thirtyDaysLater = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const todayStr = now.toISOString().slice(0, 10);
