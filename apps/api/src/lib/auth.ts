@@ -8,14 +8,10 @@ import { db } from "@tenderfish/db";
 import * as schema from "@tenderfish/db";
 import { getEnv } from "./env";
 
-let _auth: ReturnType<typeof betterAuth> | null = null;
-
-export function getAuth() {
-  if (_auth) return _auth;
-
+function createAuth() {
   const env = getEnv();
 
-  _auth = betterAuth({
+  return betterAuth({
     database: drizzleAdapter(db, {
       provider: "pg",
       usePlural: true,
@@ -81,6 +77,11 @@ export function getAuth() {
       updateAge: 60 * 60 * 24,      // refresh session every 24h
     },
   });
+}
 
+let _auth: ReturnType<typeof createAuth> | undefined;
+
+export function getAuth() {
+  if (!_auth) _auth = createAuth();
   return _auth;
 }
