@@ -10,7 +10,7 @@
   }
 
   html {
-    font-size: 14px;
+    font-size: 15px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -68,14 +68,14 @@
   }
 
   .btn-primary {
-    @apply bg-brand-orange text-white;
+    @apply btn bg-brand-orange text-white;
   }
   .btn-primary:hover {
     @apply bg-brand-orange-hover;
   }
 
   .btn-secondary {
-    @apply text-text-primary;
+    @apply btn text-text-primary;
     background: none;
     border: 1px solid #d2d2d7;
   }
@@ -84,7 +84,7 @@
   }
 
   .btn-ghost {
-    @apply bg-transparent text-text-primary;
+    @apply btn bg-transparent text-text-primary;
     padding: 7px 16px;
   }
   .btn-ghost:hover {
@@ -92,7 +92,7 @@
   }
 
   .btn-destructive {
-    @apply bg-status-danger text-white;
+    @apply btn bg-status-danger text-white;
   }
   .btn-destructive:hover {
     @apply opacity-90;
