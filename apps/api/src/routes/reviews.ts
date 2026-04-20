@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db, projects, reviewSubmissions, users } from "@tenderfish/db";
 import { eq, and, asc, desc } from "drizzle-orm";
 import { logAudit } from "../utils/audit";
+import { createNotification } from "../utils/notify";
 
 async function verifyProject(projectId: string, workspaceId: string) {
   return db.query.projects.findFirst({
@@ -59,6 +60,7 @@ export async function reviewRoutes(app: FastifyInstance) {
       submittedBy: string;
       submissionDate: string;
       reviewDueDate?: string;
+      reviewerId?: string;
     };
 
     const project = await verifyProject(id, request.auth.workspaceId);
@@ -81,6 +83,19 @@ export async function reviewRoutes(app: FastifyInstance) {
         reviewDueDate: body.reviewDueDate || null,
       })
       .returning();
+
+    if (body.reviewerId && body.reviewerId !== request.auth.userId) {
+      await createNotification({
+        workspaceId: request.auth.workspaceId,
+        userId: body.reviewerId,
+        projectId: id,
+        type: "review_submission_received",
+        title: `Review submission: "${body.title.trim()}"`,
+        body: `On project "${project.name}" — due ${body.reviewDueDate ?? "unspecified"}.`,
+        entityType: "review_submission",
+        entityId: created.id,
+      });
+    }
 
     return reply.status(201).send({ data: created });
   });

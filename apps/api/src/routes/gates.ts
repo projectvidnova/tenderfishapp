@@ -3,6 +3,7 @@ import { db, projects, gates, approvals, users } from "@tenderfish/db";
 import { eq, and, asc, inArray } from "drizzle-orm";
 import { requireAccess } from "../middleware/rbac";
 import { logAudit } from "../utils/audit";
+import { broadcastNotification, createNotification } from "../utils/notify";
 import { gateOverrideSchema, validateBody } from "../lib/validation";
 
 async function verifyProject(projectId: string, workspaceId: string) {
@@ -159,6 +160,17 @@ export async function gateRoutes(app: FastifyInstance) {
       afterState: { status: "overridden", reason: parsed.data.reason },
     });
 
+    await broadcastNotification({
+      workspaceId: request.auth.workspaceId,
+      projectId: id,
+      actorId: request.auth.userId,
+      type: "gate_override",
+      title: `Gate ${gateParam} overridden on "${project.name}"`,
+      body: parsed.data.reason,
+      entityType: "gate",
+      entityId: gateRecord.id,
+    });
+
     // Unlock next gate
     const gateOrder = ["A", "B", "C", "D", "E", "F"];
     const currentIndex = gateOrder.indexOf(gateParam);
@@ -287,6 +299,19 @@ export async function gateRoutes(app: FastifyInstance) {
       })
       .returning();
 
+    if (body.approverUserId && body.approverUserId !== request.auth.userId) {
+      await createNotification({
+        workspaceId: request.auth.workspaceId,
+        userId: body.approverUserId,
+        projectId: id,
+        type: "approval_requested",
+        title: `Approval requested: "${body.name.trim()}"`,
+        body: `On project "${project.name}"`,
+        entityType: "approval",
+        entityId: approval.id,
+      });
+    }
+
     return reply.status(201).send({ data: approval });
   });
 
@@ -343,6 +368,19 @@ export async function gateRoutes(app: FastifyInstance) {
         beforeState: { status: existing.status, name: existing.name },
         afterState: { status: body.status },
       });
+
+      if (existing.requestedBy && existing.requestedBy !== request.auth.userId) {
+        await createNotification({
+          workspaceId: request.auth.workspaceId,
+          userId: existing.requestedBy,
+          projectId: id,
+          type: "approval_requested",
+          title: `Approval "${existing.name}" was ${body.status}`,
+          body: `On project "${project.name}"`,
+          entityType: "approval",
+          entityId: approvalId,
+        });
+      }
     }
 
     return { data: updated };
