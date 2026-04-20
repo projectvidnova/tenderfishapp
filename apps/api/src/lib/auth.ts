@@ -12,23 +12,24 @@ function createAuth() {
   const env = getEnv();
 
   return betterAuth({
-    database: {
-      db: drizzleAdapter(db, {
-        provider: "pg",
-        usePlural: true,
-        schema: {
-          ...schema,
-          user: schema.users,
-          session: schema.sessions,
-          account: schema.accounts,
-          verification: schema.verifications,
-        },
-      }),
-      generateId: () => crypto.randomUUID(),
-    },
+    database: drizzleAdapter(db, {
+      provider: "pg",
+      usePlural: true,
+      schema: {
+        ...schema,
+        user: schema.users,
+        session: schema.sessions,
+        account: schema.accounts,
+        verification: schema.verifications,
+      },
+    }),
     baseURL: env.NEXT_PUBLIC_APP_URL,
     basePath: "/api/auth",
     secret: env.BETTER_AUTH_SECRET,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    advanced: {
+      generateId: () => crypto.randomUUID(),
+    } as any,
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 8,
