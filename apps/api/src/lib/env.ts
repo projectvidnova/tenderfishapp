@@ -12,10 +12,10 @@ const envSchema = z.object({
   AI_PROVIDER: z.enum(["ionos", "anthropic"]).default("ionos"),
 
   // Anthropic (required when AI_PROVIDER=anthropic)
-  ANTHROPIC_API_KEY: z.string().min(1, "ANTHROPIC_API_KEY is required").optional(),
+  ANTHROPIC_API_KEY: z.string().optional().transform(v => v === "" ? undefined : v),
 
   // IONOS AI (required when AI_PROVIDER=ionos)
-  IONOS_API_KEY: z.string().min(1, "IONOS_API_KEY is required").optional(),
+  IONOS_API_KEY: z.string().optional().transform(v => v === "" ? undefined : v),
   IONOS_AI_BASE_URL: z.string().url().default("https://openai.inference.de-txl.ionos.com/v1"),
 
   // Optional with defaults
