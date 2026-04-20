@@ -5,6 +5,11 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 export const metadata: Metadata = {
   title: "Tenderfish",
   description: "AI-powered project management for German architectural projects",
+  icons: {
+    icon: "/tenderfish-icon.svg",
+    shortcut: "/tenderfish-icon.svg",
+    apple: "/tenderfish-icon.svg",
+  },
 };
 
 export default function RootLayout({

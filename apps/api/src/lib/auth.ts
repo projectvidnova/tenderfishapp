@@ -23,7 +23,7 @@ function createAuth() {
         verification: schema.verifications,
       },
     }),
-    baseURL: `http://${env.HOST}:${env.PORT}`,
+    baseURL: env.NEXT_PUBLIC_APP_URL,
     basePath: "/api/auth",
     secret: env.BETTER_AUTH_SECRET,
     emailAndPassword: {

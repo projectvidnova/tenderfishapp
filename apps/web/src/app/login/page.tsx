@@ -1,14 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { signIn } from "@/lib/auth-client";
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -30,7 +40,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/dashboard");
+      router.push(callbackUrl);
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -39,11 +49,11 @@ export default function LoginPage() {
   }
 
   async function handleGoogleLogin() {
-    await signIn.social({ provider: "google", callbackURL: "/dashboard" });
+    await signIn.social({ provider: "google", callbackURL: callbackUrl });
   }
 
   async function handleMicrosoftLogin() {
-    await signIn.social({ provider: "microsoft", callbackURL: "/dashboard" });
+    await signIn.social({ provider: "microsoft", callbackURL: callbackUrl });
   }
 
   return (
