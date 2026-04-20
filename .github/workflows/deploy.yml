@@ -214,7 +214,7 @@ jobs:
   # ─── Stage 5: Smoke Test ───────────────────────
   smoke-test:
     name: Smoke Test
-    needs: migrate
+    needs: deploy
     runs-on: ubuntu-latest
 
     steps:
