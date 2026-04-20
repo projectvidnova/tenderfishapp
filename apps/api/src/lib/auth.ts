@@ -28,7 +28,7 @@ function createAuth() {
     secret: env.BETTER_AUTH_SECRET,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     advanced: {
-      generateId: () => crypto.randomUUID(),
+      database: { generateId: "uuid" },
     } as any,
     emailAndPassword: {
       enabled: true,
