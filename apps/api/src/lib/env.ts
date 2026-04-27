@@ -17,6 +17,8 @@ const envSchema = z.object({
   // IONOS AI (required when AI_PROVIDER=ionos)
   IONOS_API_KEY: z.string().optional().transform(v => v === "" ? undefined : v),
   IONOS_AI_BASE_URL: z.string().url().default("https://openai.inference.de-txl.ionos.com/v1"),
+  GROQ_API_KEY: z.string().optional().transform(v => v === "" ? undefined : v),
+  GROQ_BASE_URL: z.string().url().default("https://api.groq.com/openai/v1"),
 
   // Optional with defaults
   PORT: z.coerce.number().int().positive().default(3001),

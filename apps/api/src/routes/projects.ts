@@ -1,8 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db, projects, projectFacts, phases, gates } from "@tenderfish/db";
 import { eq, and } from "drizzle-orm";
-import { GATE_DEFINITIONS, LPH_PHASES } from "@tenderfish/shared";
-import type { GateLetter, LphNumber } from "@tenderfish/shared";
+import { ensureProjectBootstrap, syncLatestDraftSpd } from "../services/project-bootstrap";
 import { createProjectSchema, validateBody } from "../lib/validation";
 
 export async function projectRoutes(app: FastifyInstance) {
@@ -52,30 +51,14 @@ export async function projectRoutes(app: FastifyInstance) {
       })
       .returning();
 
-    // Create default gates (A–F)
-    const gateLetters: GateLetter[] = ["A", "B", "C", "D", "E", "F"];
-    await db.insert(gates).values(
-      gateLetters.map((letter) => ({
-        projectId: project.id,
-        gate: letter,
-        status: letter === "A" ? ("in_progress" as const) : ("locked" as const),
-        criteria: GATE_DEFINITIONS[letter].defaultCriteria.map((c) => ({
-          ...c,
-          met: false,
-        })),
-      }))
-    );
-
-    // Create default phases (LPH 1–9)
-    const lphNumbers: LphNumber[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-    await db.insert(phases).values(
-      lphNumbers.map((lph) => ({
-        projectId: project.id,
-        lph,
-        status: "not_started" as const,
-        objective: LPH_PHASES[lph].objective,
-      }))
-    );
+    await ensureProjectBootstrap(project.id, request.auth.userId, {
+      name: body.name,
+      type: body.type,
+      location: body.location,
+      objective: body.objective,
+      scopeSummary: body.scopeSummary,
+      currentLph: 1,
+    });
 
     return reply.status(201).send({ data: project });
   });
@@ -143,6 +126,15 @@ export async function projectRoutes(app: FastifyInstance) {
 
     const [updated] = await db.update(projects).set(updates).where(eq(projects.id, id)).returning();
 
+    await syncLatestDraftSpd(id, {
+      name: typeof updated.name === "string" ? updated.name : null,
+      type: typeof updated.type === "string" ? updated.type : null,
+      location: typeof updated.location === "string" ? updated.location : null,
+      objective: typeof updated.objective === "string" ? updated.objective : null,
+      scopeSummary: typeof updated.scopeSummary === "string" ? updated.scopeSummary : null,
+      currentLph: 1,
+    });
+
     return { data: updated };
   });
 
@@ -171,6 +163,47 @@ export async function projectRoutes(app: FastifyInstance) {
     return { data: facts };
   });
 
+  // POST /api/projects/:id/facts — create fact
+  app.post("/projects/:id/facts", async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!request.auth) {
+      return reply.status(401).send({ error: "Unauthorized" });
+    }
+
+    const { id } = request.params as { id: string };
+    const body = request.body as {
+      fieldName?: string;
+      value?: string | null;
+      dataState?: string;
+      sourceRef?: string | null;
+    };
+
+    const project = await db.query.projects.findFirst({
+      where: and(eq(projects.id, id), eq(projects.workspaceId, request.auth.workspaceId)),
+    });
+    if (!project) {
+      return reply.status(404).send({ error: "Project not found" });
+    }
+
+    if (!body.fieldName || typeof body.fieldName !== "string") {
+      return reply.status(400).send({ error: "fieldName is required" });
+    }
+
+    const [created] = await db
+      .insert(projectFacts)
+      .values({
+        projectId: id,
+        fieldName: body.fieldName,
+        value: body.value ?? null,
+        dataState:
+          (body.dataState as typeof projectFacts.dataState.enumValues[number]) ||
+          "DERIVED",
+        sourceRef: body.sourceRef ?? "manual_entry",
+      })
+      .returning();
+
+    return reply.status(201).send({ data: created });
+  });
+
   // PATCH /api/projects/:id/facts/:factId — update fact
   app.patch("/projects/:id/facts/:factId", async (request: FastifyRequest, reply: FastifyReply) => {
     if (!request.auth) {
@@ -178,7 +211,7 @@ export async function projectRoutes(app: FastifyInstance) {
     }
 
     const { id, factId } = request.params as { id: string; factId: string };
-    const body = request.body as { value?: string; dataState?: string };
+    const body = request.body as { value?: string; dataState?: string; sourceRef?: string | null };
 
     // Verify project belongs to workspace
     const project = await db.query.projects.findFirst({
@@ -189,17 +222,66 @@ export async function projectRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "Project not found" });
     }
 
+    const currentFact = await db.query.projectFacts.findFirst({
+      where: and(eq(projectFacts.id, factId), eq(projectFacts.projectId, id)),
+    });
+    if (!currentFact) {
+      return reply.status(404).send({ error: "Fact not found" });
+    }
+
     const updates: Record<string, unknown> = {};
     if ("value" in body) updates.value = body.value;
     if ("dataState" in body) updates.dataState = body.dataState;
+    if ("sourceRef" in body) updates.sourceRef = body.sourceRef;
+
+    if (body.dataState === "CONFIRMED" && currentFact.value) {
+      try {
+        const parsed = JSON.parse(currentFact.value) as Record<string, unknown>;
+        if (parsed && typeof parsed === "object") {
+          updates.value = JSON.stringify({
+            ...parsed,
+            truth_state: "confirmed",
+          });
+        }
+      } catch {
+        // keep original non-JSON value
+      }
+    }
 
     const [updated] = await db
       .update(projectFacts)
       .set(updates)
-      .where(eq(projectFacts.id, factId))
+      .where(and(eq(projectFacts.id, factId), eq(projectFacts.projectId, id)))
       .returning();
 
     return { data: updated };
+  });
+
+  // DELETE /api/projects/:id/facts/:factId — delete fact
+  app.delete("/projects/:id/facts/:factId", async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!request.auth) {
+      return reply.status(401).send({ error: "Unauthorized" });
+    }
+
+    const { id, factId } = request.params as { id: string; factId: string };
+
+    const project = await db.query.projects.findFirst({
+      where: and(eq(projects.id, id), eq(projects.workspaceId, request.auth.workspaceId)),
+    });
+    if (!project) {
+      return reply.status(404).send({ error: "Project not found" });
+    }
+
+    const [deleted] = await db
+      .delete(projectFacts)
+      .where(and(eq(projectFacts.id, factId), eq(projectFacts.projectId, id)))
+      .returning();
+
+    if (!deleted) {
+      return reply.status(404).send({ error: "Fact not found" });
+    }
+
+    return { data: deleted };
   });
 
   // GET /api/projects/:id/gates — all gates

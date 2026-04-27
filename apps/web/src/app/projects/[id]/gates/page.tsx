@@ -45,6 +45,10 @@ export default function GatesPage() {
   const [overrideGate, setOverrideGate] = useState<string | null>(null);
   const [overrideReason, setOverrideReason] = useState("");
   const [overrideAck, setOverrideAck] = useState(false);
+  const [reverifyGate, setReverifyGate] = useState<string | null>(null);
+  const [reverifyFiles, setReverifyFiles] = useState<FileList | null>(null);
+  const [reverifyText, setReverifyText] = useState("");
+  const [reverifyStatus, setReverifyStatus] = useState<string>("");
 
   const fetchGates = useCallback(async () => {
     try {
@@ -93,6 +97,44 @@ export default function GatesPage() {
     setOverrideReason("");
     setOverrideAck(false);
     fetchGates();
+  }
+
+  async function submitReverify() {
+    if (!reverifyGate) return;
+    const hasFiles = !!reverifyFiles && reverifyFiles.length > 0;
+    const hasText = reverifyText.trim().length > 0;
+    if (!hasFiles && !hasText) return;
+
+    const activeGate = reverifyGate;
+    const formData = new FormData();
+    if (hasFiles) {
+      Array.from(reverifyFiles || []).forEach((file) => {
+        formData.append("files", file);
+      });
+    }
+    if (hasText) {
+      formData.append("evidenceText", reverifyText.trim());
+    }
+
+    // Close modal immediately once evidence is attached and submitted.
+    setReverifyGate(null);
+    setReverifyFiles(null);
+    setReverifyText("");
+    setReverifyStatus(`Checking Gate ${activeGate} criteria with AI...`);
+
+    const res = await fetch(`${API}/api/projects/${id}/gates/${activeGate}/reverify`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.message || err.error);
+      setReverifyStatus(`Gate ${activeGate} re-verification failed.`);
+      return;
+    }
+    setReverifyStatus(`Gate ${activeGate} criteria updated from evidence.`);
+    await fetchGates();
   }
 
   if (loading) {
@@ -223,6 +265,19 @@ export default function GatesPage() {
                       )}
                       {g.status !== "complete" && g.status !== "locked" && (
                         <button
+                          onClick={() => {
+                            setReverifyGate(g.gate);
+                            setReverifyStatus("");
+                            setReverifyFiles(null);
+                            setReverifyText("");
+                          }}
+                          className="btn-secondary text-sm"
+                        >
+                          Add Evidence & Re-verify
+                        </button>
+                      )}
+                      {g.status !== "complete" && g.status !== "locked" && (
+                        <button
                           onClick={() => setOverrideGate(g.gate)}
                           className="btn-secondary text-sm text-orange-600 border-orange-300 hover:bg-orange-50"
                         >
@@ -275,6 +330,72 @@ export default function GatesPage() {
                 disabled={overrideReason.trim().length < 50 || !overrideAck}
               >
                 Confirm override
+              </button>
+            </div>
+          </div>
+        </Modal>
+
+        <Modal
+          open={!!reverifyGate}
+          onClose={() => {
+            setReverifyGate(null);
+            setReverifyFiles(null);
+            setReverifyStatus("");
+          }}
+          title={`Add Evidence — Gate ${reverifyGate}`}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">
+              Upload additional project files and re-run AI verification for this gate.
+              Criteria and readiness progress will update automatically.
+            </p>
+            <div>
+              <label className="label">Evidence files</label>
+              <input
+                type="file"
+                multiple
+                className="input h-auto py-2"
+                onChange={(event) => setReverifyFiles(event.target.files)}
+              />
+              <span className="text-xs text-text-quaternary mt-1 block">
+                Supports PDF, Word, Excel and other parsed intake documents.
+              </span>
+            </div>
+            <div>
+              <label className="label">Or add supporting text</label>
+              <textarea
+                className="input min-h-[110px] resize-y"
+                placeholder="Paste additional supporting evidence or notes to re-check this gate..."
+                value={reverifyText}
+                onChange={(event) => setReverifyText(event.target.value)}
+              />
+            </div>
+            {reverifyStatus && (
+              <div className="text-xs text-brand-orange bg-status-warning-light border border-status-warning-border rounded-lg px-3 py-2">
+                {reverifyStatus}
+              </div>
+            )}
+            <div className="flex justify-end gap-3 pt-1">
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  setReverifyGate(null);
+                  setReverifyFiles(null);
+                  setReverifyText("");
+                  setReverifyStatus("");
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={submitReverify}
+                disabled={
+                  (!reverifyFiles || reverifyFiles.length === 0) &&
+                  reverifyText.trim().length === 0
+                }
+              >
+                Re-verify gate
               </button>
             </div>
           </div>

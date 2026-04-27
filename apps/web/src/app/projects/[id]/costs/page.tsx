@@ -65,6 +65,13 @@ type CostLineItem = {
   dataState: string | null;
 };
 
+type ProjectFact = {
+  id: string;
+  fieldName: string;
+  value: string | null;
+  dataState: string;
+};
+
 export default function CostsPage() {
   const { id } = useParams() as { id: string };
   const [snapshots, setSnapshots] = useState<CostSnapshot[]>([]);
@@ -74,6 +81,8 @@ export default function CostsPage() {
   const [showAddItem, setShowAddItem] = useState(false);
   const [form, setForm] = useState({ costStage: "kostenrahmen", snapshotDate: new Date().toISOString().slice(0, 10), notes: "" });
   const [itemForm, setItemForm] = useState({ costGroupCode: "300", description: "", amountNet: "", amountGross: "", source: "estimate", dataState: "DERIVED" });
+  const [facts, setFacts] = useState<ProjectFact[]>([]);
+  const [confirmingFactId, setConfirmingFactId] = useState<string | null>(null);
 
   const fetchSnapshots = useCallback(async () => {
     try {
@@ -88,7 +97,24 @@ export default function CostsPage() {
     setLoading(false);
   }, [id]);
 
-  useEffect(() => { fetchSnapshots(); }, [fetchSnapshots]);
+  const fetchFacts = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/api/projects/${id}/facts`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setFacts(json.data || []);
+      }
+    } catch {
+      // ignore
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchSnapshots();
+    fetchFacts();
+  }, [fetchSnapshots, fetchFacts]);
 
   async function createSnapshot() {
     const res = await fetch(`${API}/api/projects/${id}/cost-snapshots`, {
@@ -142,7 +168,35 @@ export default function CostsPage() {
     if (showDetail?.id === snapId) openDetail(showDetail);
   }
 
+  async function confirmFact(factId: string) {
+    try {
+      setConfirmingFactId(factId);
+      await fetch(`${API}/api/projects/${id}/facts/${factId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ dataState: "CONFIRMED" }),
+      });
+      await fetchFacts();
+    } catch {
+      // ignore
+    } finally {
+      setConfirmingFactId(null);
+    }
+  }
+
   if (loading) return <AppShell><div className="p-8 text-text-quaternary">Loading…</div></AppShell>;
+
+  const aiCostFacts = facts.filter((fact) => fact.fieldName === "cost_item");
+  const parseFact = (raw: string | null): Record<string, unknown> | null => {
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
+  };
 
   return (
     <AppShell>
@@ -211,6 +265,70 @@ export default function CostsPage() {
             </tbody>
           </table>
         </div>
+
+        {aiCostFacts.length > 0 && (
+          <div className="card overflow-hidden">
+            <div className="px-4 py-3 border-b border-border bg-bg-inset/30">
+              <h2 className="text-sm font-semibold">AI-Extracted Cost Rows (DIN 276)</h2>
+              <p className="text-xs text-text-tertiary mt-0.5">
+                These rows are inferred from uploaded documents and linked to source documents.
+              </p>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-bg-inset/20">
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">DIN Group</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Description</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-text-tertiary uppercase font-mono">Qty</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-text-tertiary uppercase font-mono">Amount (EUR)</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">State</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aiCostFacts.map((fact) => {
+                  const parsed = parseFact(fact.value);
+                  const din = typeof parsed?.din276_code === "string" ? parsed.din276_code : "—";
+                  const description = typeof parsed?.description === "string" ? parsed.description : "—";
+                  const quantity =
+                    typeof parsed?.quantity === "number"
+                      ? parsed.quantity.toLocaleString("de-DE")
+                      : "—";
+                  const amount =
+                    typeof parsed?.amount === "number"
+                      ? new Intl.NumberFormat("de-DE", {
+                          style: "currency",
+                          currency: "EUR",
+                          maximumFractionDigits: 0,
+                        }).format(parsed.amount)
+                      : "—";
+                  return (
+                    <tr key={fact.id} className="border-b border-border last:border-0">
+                      <td className="px-4 py-2 font-mono text-xs font-semibold">{din}</td>
+                      <td className="px-4 py-2 text-text-secondary">{description}</td>
+                      <td className="px-4 py-2 text-right font-mono">{quantity}</td>
+                      <td className="px-4 py-2 text-right font-mono">{amount}</td>
+                      <td className="px-4 py-2">
+                        <DataStateChip state={fact.dataState} />
+                      </td>
+                      <td className="px-4 py-2">
+                        {fact.dataState !== "CONFIRMED" && (
+                          <button
+                            onClick={() => confirmFact(fact.id)}
+                            disabled={confirmingFactId === fact.id}
+                            className="text-xs font-medium text-brand-orange hover:text-brand-orange-hover disabled:opacity-50"
+                          >
+                            Review & Confirm
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         <Modal open={showAdd} onClose={() => setShowAdd(false)} title="New Cost Snapshot">
           <div className="space-y-4">

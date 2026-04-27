@@ -10,34 +10,60 @@ interface ParsedDocument {
   metadata?: Record<string, string>;
 }
 
+export interface FileParseInput {
+  buffer: Buffer;
+  file_name: string;
+  mime_type: string;
+}
+
+export interface FileParseOutput {
+  text: string;
+  metadata: {
+    file_type: string;
+    file_name: string;
+  };
+}
+
 /**
  * Parse a file buffer into plain text based on its MIME type.
  */
+export async function parseFile(file: FileParseInput): Promise<FileParseOutput>;
 export async function parseFile(
   buffer: Buffer,
   fileName: string,
   mimeType: string
-): Promise<ParsedDocument> {
+): Promise<ParsedDocument>;
+export async function parseFile(
+  arg1: Buffer | FileParseInput,
+  arg2?: string,
+  arg3?: string
+): Promise<FileParseOutput | ParsedDocument> {
+  const input: FileParseInput = Buffer.isBuffer(arg1)
+    ? {
+        buffer: arg1,
+        file_name: arg2 || "unknown",
+        mime_type: arg3 || "application/octet-stream",
+      }
+    : arg1;
+
+  const fileName = input.file_name;
+  const mimeType = input.mime_type;
+  const buffer = input.buffer;
   const result: ParsedDocument = { fileName, mimeType, text: "" };
 
   try {
-    if (mimeType === "application/pdf") {
+    const normalizedName = fileName.toLowerCase();
+    const byMime = normalizeMimeType(mimeType);
+    if (byMime === "pdf") {
       result.text = await parsePdf(buffer);
-    } else if (
-      mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-      mimeType === "application/msword"
-    ) {
+    } else if (byMime === "word") {
       result.text = await parseDocx(buffer);
-    } else if (mimeType === "message/rfc822" || fileName.endsWith(".eml")) {
-      result.text = await parseEmail(buffer);
-    } else if (mimeType === "application/vnd.ms-outlook" || fileName.endsWith(".msg")) {
-      // MSG files are treated as raw text extraction attempt
-      result.text = await parseRawText(buffer);
-    } else if (
-      mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-      mimeType === "application/vnd.ms-excel"
-    ) {
+    } else if (byMime === "excel") {
       result.text = await parseXlsx(buffer);
+    } else if (mimeType === "message/rfc822" || normalizedName.endsWith(".eml")) {
+      result.text = await parseEmail(buffer);
+    } else if (mimeType === "application/vnd.ms-outlook" || normalizedName.endsWith(".msg")) {
+      result.text = await parseRawText(buffer);
     } else if (mimeType === "text/plain" || mimeType === "text/csv") {
       result.text = buffer.toString("utf-8");
     } else if (mimeType.startsWith("image/")) {
@@ -51,7 +77,44 @@ export async function parseFile(
     result.text = `[Failed to parse ${fileName}: ${error instanceof Error ? error.message : "Unknown error"}]`;
   }
 
-  return result;
+  result.text = cleanExtractedText(result.text);
+
+  if (Buffer.isBuffer(arg1)) return result;
+
+  return {
+    text: result.text,
+    metadata: {
+      file_type: mimeType,
+      file_name: fileName,
+    },
+  };
+}
+
+function normalizeMimeType(mimeType: string): "pdf" | "word" | "excel" | "other" {
+  const lower = mimeType.toLowerCase();
+  if (lower === "application/pdf") return "pdf";
+  if (
+    lower === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    lower === "application/msword"
+  ) {
+    return "word";
+  }
+  if (
+    lower === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    lower === "application/vnd.ms-excel"
+  ) {
+    return "excel";
+  }
+  return "other";
+}
+
+function cleanExtractedText(text: string): string {
+  return text
+    .replace(/\u0000/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 async function parsePdf(buffer: Buffer): Promise<string> {
@@ -78,18 +141,9 @@ async function parseEmail(buffer: Buffer): Promise<string> {
   try {
     const { simpleParser } = await import("mailparser");
     const parsed = await simpleParser(buffer);
-    const parts = [];
-    if (parsed.subject) parts.push(`Subject: ${parsed.subject}`);
-    if (parsed.from?.text) parts.push(`From: ${parsed.from.text}`);
-    if (parsed.to) {
-      const toText = Array.isArray(parsed.to)
-        ? parsed.to.map((t) => t.text).join(", ")
-        : parsed.to.text;
-      parts.push(`To: ${toText}`);
-    }
-    if (parsed.date) parts.push(`Date: ${parsed.date.toISOString()}`);
-    parts.push("");
-    if (parsed.text) parts.push(parsed.text);
+    const subject = parsed.subject?.trim() || "";
+    const body = stripEmailNoise(parsed.text || "");
+    const parts = [`Subject: ${subject}`, "", body].filter(Boolean);
     return parts.join("\n");
   } catch {
     return "[Email parsing failed — library not available]";
@@ -104,8 +158,15 @@ async function parseXlsx(buffer: Buffer): Promise<string> {
 
     for (const sheetName of workbook.SheetNames) {
       const sheet = workbook.Sheets[sheetName];
-      const csv = XLSX.utils.sheet_to_csv(sheet);
-      sheets.push(`--- Sheet: ${sheetName} ---\n${csv}`);
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+        defval: null,
+        raw: false,
+      });
+      const formattedRows =
+        rows.length > 0
+          ? rows.map((row) => `Row: ${JSON.stringify(row)}`).join("\n")
+          : "Row: {}";
+      sheets.push(`Sheet: ${sheetName}\n${formattedRows}`);
     }
 
     return sheets.join("\n\n");
@@ -116,6 +177,34 @@ async function parseXlsx(buffer: Buffer): Promise<string> {
 
 async function parseRawText(buffer: Buffer): Promise<string> {
   return buffer.toString("utf-8").replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ");
+}
+
+function stripEmailNoise(text: string): string {
+  const normalized = text
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .filter((line) => !/^(from|to|cc|bcc|sent|subject):/i.test(line.trim()))
+    .join("\n");
+
+  const signatureMarkers = [
+    "\n-- \n",
+    "\nRegards,",
+    "\nBest regards,",
+    "\nKind regards,",
+    "\nMit freundlichen",
+    "\nSent from my",
+  ];
+
+  let cleaned = normalized;
+  for (const marker of signatureMarkers) {
+    const markerIndex = cleaned.indexOf(marker);
+    if (markerIndex !== -1) {
+      cleaned = cleaned.slice(0, markerIndex);
+      break;
+    }
+  }
+
+  return cleaned.trim();
 }
 
 /**

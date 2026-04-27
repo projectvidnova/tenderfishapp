@@ -354,6 +354,47 @@ export async function dashboardRoutes(app: FastifyInstance) {
         });
       }
 
+      const parseFactJson = (raw: string | null): Record<string, unknown> | null => {
+        if (!raw) return null;
+        try {
+          const parsed = JSON.parse(raw);
+          return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+        } catch {
+          return null;
+        }
+      };
+      const inferredOverview = {
+        clientName: project.clientName || null,
+        commissionedPhases: [] as number[],
+        buildingPermitStatus: null as string | null,
+      };
+      for (const fact of projectFacts_) {
+        const parsed = parseFactJson(fact.value);
+        if (!parsed) continue;
+        if (fact.fieldName === "overview_client_name" && !inferredOverview.clientName) {
+          inferredOverview.clientName =
+            typeof parsed.client_name === "string" ? parsed.client_name : inferredOverview.clientName;
+        }
+        if (
+          fact.fieldName === "overview_commissioned_phases" &&
+          inferredOverview.commissionedPhases.length === 0 &&
+          Array.isArray(parsed.commissioned_phases)
+        ) {
+          inferredOverview.commissionedPhases = parsed.commissioned_phases
+            .map((v) => Number(v))
+            .filter((v) => Number.isInteger(v) && v >= 1 && v <= 9);
+        }
+        if (
+          fact.fieldName === "overview_building_permit_status" &&
+          !inferredOverview.buildingPermitStatus
+        ) {
+          inferredOverview.buildingPermitStatus =
+            typeof parsed.building_permit_status === "string"
+              ? parsed.building_permit_status
+              : null;
+        }
+      }
+
       return {
         data: {
           project,
@@ -368,6 +409,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
             execution: executionReadiness,
             closeout: closeoutReadiness,
           },
+          inferredOverview,
           actionItems,
         },
       };

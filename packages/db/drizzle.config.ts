@@ -1,4 +1,9 @@
 import type { Config } from "drizzle-kit";
+import * as dotenv from "dotenv";
+import path from "path";
+
+// 👇 load from ROOT, not local folder
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 export default {
   schema: "./src/schema.ts",

@@ -27,6 +27,88 @@ interface ExtractedFact {
   sourceRef: string | null;
 }
 
+function parseFactJson(value: string | null): Record<string, unknown> | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function formatFactValueForDisplay(fact: ExtractedFact): string {
+  if (!fact.value) return "";
+  const parsed = parseFactJson(fact.value);
+  if (!parsed) return fact.value;
+
+  if (fact.fieldName === "cost_item") {
+    const description =
+      typeof parsed.description === "string" ? parsed.description : "Cost item";
+    const din =
+      typeof parsed.din276_code === "string" ? `DIN ${parsed.din276_code}` : "DIN n/a";
+    const quantity =
+      typeof parsed.quantity === "number"
+        ? `${parsed.quantity}${typeof parsed.unit === "string" && parsed.unit ? ` ${parsed.unit}` : ""}`
+        : null;
+    const amount =
+      typeof parsed.amount === "number"
+        ? new Intl.NumberFormat("de-DE", {
+            style: "currency",
+            currency: "EUR",
+            maximumFractionDigits: 0,
+          }).format(parsed.amount)
+        : null;
+    return [description, din, quantity, amount].filter(Boolean).join(" • ");
+  }
+
+  if (fact.fieldName === "overview_commissioned_phases") {
+    const phases = Array.isArray(parsed.commissioned_phases)
+      ? parsed.commissioned_phases
+      : [];
+    return phases.length > 0
+      ? phases.map((phase) => `LPH ${String(phase)}`).join(", ")
+      : "";
+  }
+
+  if (
+    fact.fieldName === "overview_building_permit_status" &&
+    typeof parsed.building_permit_status === "string"
+  ) {
+    return parsed.building_permit_status;
+  }
+
+  if (
+    fact.fieldName === "accessibility_requirements" &&
+    typeof parsed.accessibility_requirements === "string"
+  ) {
+    return parsed.accessibility_requirements;
+  }
+
+  if (typeof parsed.summary === "string") return parsed.summary;
+  if (typeof parsed.value === "string") return parsed.value;
+  const entries = Object.entries(parsed)
+    .filter(([, value]) => value !== null && value !== undefined && value !== "")
+    .map(([key, value]) => {
+      const label = key.replace(/_/g, " ");
+      if (Array.isArray(value)) {
+        if (value.length === 0) return "";
+        return `${label}: ${value.map((item) => String(item)).join(", ")}`;
+      }
+      if (typeof value === "object") {
+        const nested = Object.entries(value as Record<string, unknown>)
+          .filter(([, nestedValue]) => nestedValue !== null && nestedValue !== undefined && nestedValue !== "")
+          .map(([nestedKey, nestedValue]) => `${nestedKey.replace(/_/g, " ")} ${String(nestedValue)}`)
+          .join(", ");
+        return nested ? `${label}: ${nested}` : "";
+      }
+      return `${label}: ${String(value)}`;
+    })
+    .filter(Boolean);
+
+  return entries.length > 0 ? entries.join(" • ") : fact.value;
+}
+
 export default function NewProjectPage() {
   const [step, setStep] = useState(1);
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -593,7 +675,11 @@ export default function NewProjectPage() {
                         <td className="px-4 py-3">
                           <input
                             className="w-full bg-transparent text-text-primary font-medium border-b border-transparent hover:border-border focus:border-brand-orange focus:outline-none px-0 py-1"
-                            value={editedFacts[fact.id] !== undefined ? editedFacts[fact.id] : (fact.value || "")}
+                            value={
+                              editedFacts[fact.id] !== undefined
+                                ? editedFacts[fact.id]
+                                : formatFactValueForDisplay(fact)
+                            }
                             onChange={(e) =>
                               setEditedFacts({ ...editedFacts, [fact.id]: e.target.value })
                             }
