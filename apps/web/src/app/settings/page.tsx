@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
+import { formatDate, formatDateTime } from "@/lib/formatters";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -194,7 +195,7 @@ export default function SettingsPage() {
                       <td className="px-4 py-3 text-xs font-medium">{m.name || "—"}</td>
                       <td className="px-4 py-3 text-xs">{m.email}</td>
                       <td className="px-4 py-3 text-xs capitalize">{ROLE_LABELS[m.role] || m.role}</td>
-                      <td className="px-4 py-3 text-xs">{new Date(m.createdAt).toLocaleDateString()}</td>
+                      <td className="px-4 py-3 text-xs">{formatDate(m.createdAt)}</td>
                     </tr>
                   ))
                 )}
@@ -328,7 +329,7 @@ export default function SettingsPage() {
                     auditLogs.map((log) => (
                       <>
                         <tr key={log.id} className="border-b border-border/40 hover:bg-bg-inset/30">
-                          <td className="px-4 py-3 text-xs">{new Date(log.createdAt).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-xs">{formatDateTime(log.createdAt)}</td>
                           <td className="px-4 py-3 text-xs">{log.userName}</td>
                           <td className="px-4 py-3 text-xs font-medium">{log.action}</td>
                           <td className="px-4 py-3 text-xs">{log.entityType}</td>
@@ -402,36 +403,139 @@ export default function SettingsPage() {
 
         {/* ── Data & Privacy ── */}
         {tab === "data" && (
-          <div className="space-y-4">
-            <div className="card p-6 space-y-3">
-              <h3 className="text-sm font-medium text-text-primary">Export All Data</h3>
-              <p className="text-xs text-text-quaternary">Export all workspace data. You&apos;ll receive a download link via email.</p>
-              <button className="btn-secondary text-xs">Request export</button>
-            </div>
-            <div className="card p-6 space-y-3">
-              <h3 className="text-sm font-medium text-text-primary">GDPR / DPA</h3>
-              <p className="text-xs text-text-quaternary">View or download our Data Processing Agreement.</p>
-              <button className="btn-secondary text-xs">Download DPA (PDF)</button>
-            </div>
-            <div className="card p-6 space-y-3">
-              <h3 className="text-sm font-medium text-text-primary">Data Retention</h3>
-              <p className="text-xs text-text-quaternary">Active data retained while subscription is active. After cancellation, data is retained for 30 days before permanent deletion.</p>
-            </div>
-            <div className="card p-6 space-y-3">
-              <h3 className="text-sm font-medium text-text-primary">Right to Erasure</h3>
-              <p className="text-xs text-text-quaternary">Request deletion of your personal data under GDPR Article 17.</p>
-              <button className="btn-secondary text-xs">Submit erasure request</button>
-            </div>
-            <div className="card p-6 space-y-3 border-status-danger-border">
-              <h3 className="text-sm font-medium text-status-reject">Delete Workspace</h3>
-              <p className="text-xs text-text-quaternary">Permanently delete this workspace and all associated data. This action has a 30-day recovery window.</p>
-              <button className="text-xs bg-status-danger-light text-status-reject border border-status-danger-border rounded px-3 py-1.5 hover:bg-status-danger-bg">
-                Delete workspace
-              </button>
-            </div>
-          </div>
+          <DataPrivacyTab />
         )}
       </div>
     </AppShell>
+  );
+}
+
+// ─── Data & Privacy tab ──────────────────────────────────────
+// Wires DSGVO Art. 20 (export) + Art. 17 (anonymize) endpoints.
+
+function DataPrivacyTab() {
+  const [exporting, setExporting] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleExport() {
+    setExporting(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API}/api/account/export`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setError(json.error ?? `Export fehlgeschlagen (${res.status})`);
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `tenderfish-data-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API}/api/account`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setError(json.error ?? `Löschung fehlgeschlagen (${res.status})`);
+        return;
+      }
+      window.location.href = "/";
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {error && (
+        <div className="card p-3 text-xs text-state-missing-text bg-status-danger-light/40 border-status-danger-border">
+          {error}
+        </div>
+      )}
+
+      <div className="card p-6 space-y-3">
+        <h3 className="text-sm font-medium text-text-primary">Daten exportieren (DSGVO Art. 20)</h3>
+        <p className="text-xs text-text-quaternary">
+          Lädt eine JSON-Datei mit Ihren Profildaten, Audit-Einträgen und sichtbaren Workspace-Projekten herunter.
+        </p>
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="btn-secondary text-xs"
+        >
+          {exporting ? "Export läuft…" : "Daten exportieren"}
+        </button>
+      </div>
+
+      <div className="card p-6 space-y-3">
+        <h3 className="text-sm font-medium text-text-primary">Datenschutz-Dokumente</h3>
+        <p className="text-xs text-text-quaternary">
+          <a className="text-brand-orange hover:underline" href="/datenschutz" target="_blank" rel="noreferrer">Datenschutzerklärung</a>
+          {" · "}
+          <a className="text-brand-orange hover:underline" href="/impressum" target="_blank" rel="noreferrer">Impressum</a>
+        </p>
+      </div>
+
+      <div className="card p-6 space-y-3 border-status-danger-border">
+        <h3 className="text-sm font-medium text-status-reject">Konto löschen (DSGVO Art. 17)</h3>
+        <p className="text-xs text-text-quaternary">
+          Anonymisiert Ihr Konto unwiderruflich. Persönliche Profildaten (E-Mail, Name) werden ersetzt;
+          Audit-Einträge bleiben pseudonymisiert erhalten, da sie zur revisionssicheren
+          Dokumentation rechtlich erforderlich sind.
+        </p>
+        {confirming ? (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-status-reject">
+              Diese Aktion kann nicht rückgängig gemacht werden. Sie werden danach abgemeldet.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="text-xs bg-status-danger-light text-status-reject border border-status-danger-border rounded px-3 py-1.5 hover:bg-status-danger-bg"
+              >
+                {deleting ? "Lösche…" : "Konto endgültig löschen"}
+              </button>
+              <button
+                onClick={() => setConfirming(false)}
+                disabled={deleting}
+                className="btn-secondary text-xs"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirming(true)}
+            className="text-xs bg-status-danger-light text-status-reject border border-status-danger-border rounded px-3 py-1.5 hover:bg-status-danger-bg"
+          >
+            Konto löschen
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

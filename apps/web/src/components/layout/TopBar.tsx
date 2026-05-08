@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Inbox, Plus, Search, Bell, CheckCheck } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { config } from "@/lib/config";
+import { formatDateTime } from "@/lib/formatters";
 
 interface Notification {
   id: string;
@@ -89,7 +90,7 @@ export function TopBar() {
 
   return (
     <header
-      className="fixed top-0 left-sidebar right-0 h-topbar border-b border-border flex items-center justify-between px-6 z-20"
+      className="fixed top-0 left-72 right-0 h-topbar border-b border-border flex items-center justify-between px-6 z-20"
       style={{
         background: "rgba(255,255,255,0.8)",
         backdropFilter: "saturate(180%) blur(20px)",
@@ -163,7 +164,7 @@ export function TopBar() {
                         <p className="text-xs font-medium text-text-primary leading-snug">{n.title}</p>
                         {n.body && <p className="text-xs text-text-tertiary mt-0.5 truncate">{n.body}</p>}
                         <p className="text-[10px] text-text-quaternary mt-1">
-                          {new Date(n.createdAt).toLocaleString()}
+                          {formatDateTime(n.createdAt)}
                         </p>
                       </div>
                     </button>

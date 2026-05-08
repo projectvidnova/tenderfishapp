@@ -25,6 +25,10 @@ import { lifecycleRoutes } from "./routes/lifecycle";
 import { costRoutes } from "./routes/costs";
 import exportRoutes from "./routes/exports";
 import chatRoutes from "./routes/chat";
+import { gaebRoutes } from "./routes/gaeb";
+import { accountRoutes } from "./routes/account";
+import { contractRoutes } from "./routes/contracts";
+import { siteRoutes } from "./routes/site";
 
 // Validate environment variables at startup (fail fast)
 const env = validateEnv();
@@ -137,6 +141,10 @@ async function buildApp() {
   await app.register(costRoutes, { prefix: "/api" });
   await app.register(exportRoutes, { prefix: "/api" });
   await app.register(chatRoutes, { prefix: "/api" });
+  await app.register(gaebRoutes, { prefix: "/api" });
+  await app.register(accountRoutes, { prefix: "/api" });
+  await app.register(contractRoutes, { prefix: "/api" });
+  await app.register(siteRoutes, { prefix: "/api" });
 
   return app;
 }

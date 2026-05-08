@@ -5,6 +5,9 @@ import { useParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { Modal } from "@/components/ui/Modal";
 import { DataStateChip } from "@/components/ui/DataStateChip";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { UploadCloud } from "lucide-react";
+import { DIN276_LEVEL1, formatDin276Label } from "@tenderfish/shared";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -23,15 +26,10 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   superseded: { label: "Superseded", cls: "bg-status-warning-bg text-status-warning-fg" },
 };
 
-const DIN276_GROUPS = [
-  { code: "100", label: "100 – Grundstück (Site)" },
-  { code: "200", label: "200 – Vorbereitende Maßnahmen (Preliminary)" },
-  { code: "300", label: "300 – Bauwerk – Baukonstruktionen (Structure)" },
-  { code: "400", label: "400 – Bauwerk – Technische Anlagen (Services)" },
-  { code: "500", label: "500 – Außenanlagen und Freiflächen (External)" },
-  { code: "600", label: "600 – Ausstattung und Kunstwerke (Equipment)" },
-  { code: "700", label: "700 – Baunebenkosten (Fees & Other)" },
-];
+const DIN276_GROUPS = DIN276_LEVEL1.map((g) => ({
+  code: g.code,
+  label: `${g.code} – ${g.nameDe} (${g.nameEn})`,
+}));
 
 function formatEur(cents: number) {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(cents / 100);
@@ -63,6 +61,9 @@ type CostLineItem = {
   unitPrice: number | null;
   source: string | null;
   dataState: string | null;
+  din276Confidence?: number | null;
+  din276Source?: string | null;
+  din276Rationale?: string | null;
 };
 
 type ProjectFact = {
@@ -232,38 +233,48 @@ export default function CostsPage() {
         </div>
 
         <div className="card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-bg-inset/30">
-                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Stage</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Date</th>
-                <th className="text-right px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Net</th>
-                <th className="text-right px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Gross</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Status</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {snapshots.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-text-quaternary">No cost snapshots yet. Create one to begin tracking costs.</td></tr>
-              ) : snapshots.map((s) => (
-                <tr key={s.id} className="border-b border-border last:border-0 hover:bg-bg-inset/20">
-                  <td className="px-4 py-3 font-medium">{COST_STAGES.find((cs) => cs.value === s.costStage)?.label || s.costStage}</td>
-                  <td className="px-4 py-3 text-text-secondary">{new Date(s.snapshotDate).toLocaleDateString("de-DE")}</td>
-                  <td className="px-4 py-3 text-right font-mono">{s.totalNet ? formatEur(s.totalNet) : "—"}</td>
-                  <td className="px-4 py-3 text-right font-mono font-medium">{s.totalGross ? formatEur(s.totalGross) : "—"}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUS_LABELS[s.status]?.cls || "bg-bg-inset text-text-tertiary"}`}>
-                      {STATUS_LABELS[s.status]?.label || s.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button className="text-xs text-brand-orange hover:text-brand-orange-hover font-medium" onClick={() => openDetail(s)}>View</button>
-                  </td>
+          {snapshots.length === 0 ? (
+            <div className="p-6">
+              <EmptyState
+                icon={<UploadCloud size={20} />}
+                title="No DIN 276 Cost Data Yet"
+                description="To generate your automated Cost Group mapping, please upload your initial Kostenschätzung or Bill of Quantities."
+                primaryActionText="Upload Cost Document"
+                primaryActionOnClick={() => setShowAdd(true)}
+              />
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-bg-inset/30">
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Stage</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Date</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Net</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Gross</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Status</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {snapshots.map((s) => (
+                  <tr key={s.id} className="border-b border-border last:border-0 hover:bg-bg-inset/20">
+                    <td className="px-4 py-3 font-medium">{COST_STAGES.find((cs) => cs.value === s.costStage)?.label || s.costStage}</td>
+                    <td className="px-4 py-3 text-text-secondary">{new Date(s.snapshotDate).toLocaleDateString("de-DE")}</td>
+                    <td className="px-4 py-3 text-right font-mono">{s.totalNet ? formatEur(s.totalNet) : "—"}</td>
+                    <td className="px-4 py-3 text-right font-mono font-medium">{s.totalGross ? formatEur(s.totalGross) : "—"}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUS_LABELS[s.status]?.cls || "bg-bg-inset text-text-tertiary"}`}>
+                        {STATUS_LABELS[s.status]?.label || s.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button className="text-xs text-brand-orange hover:text-brand-orange-hover font-medium" onClick={() => openDetail(s)}>View</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {aiCostFacts.length > 0 && (
@@ -441,12 +452,21 @@ export default function CostsPage() {
                       <tr><td colSpan={6} className="px-4 py-6 text-center text-text-quaternary">No line items yet.</td></tr>
                     ) : showDetail.lineItems.map((item) => (
                       <tr key={item.id} className="border-b border-border last:border-0">
-                        <td className="px-4 py-2 font-mono text-xs font-medium">{item.costGroupCode}</td>
+                        <td className="px-4 py-2 font-mono text-xs font-medium" title={formatDin276Label(item.costGroupCode)}>
+                          {item.costGroupCode}
+                        </td>
                         <td className="px-4 py-2 text-text-secondary">{item.description || "—"}</td>
                         <td className="px-4 py-2 text-right font-mono">{formatEur(item.amountNet)}</td>
                         <td className="px-4 py-2 text-right font-mono font-medium">{formatEur(item.amountGross)}</td>
                         <td className="px-4 py-2 text-xs text-text-tertiary">{item.source || "—"}</td>
-                        <td className="px-4 py-2">{item.dataState && <DataStateChip state={item.dataState} />}</td>
+                        <td className="px-4 py-2">
+                          {item.dataState && (
+                            <DataStateChip
+                              state={item.dataState}
+                              confidence={item.din276Confidence ?? undefined}
+                            />
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

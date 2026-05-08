@@ -120,6 +120,7 @@ export const GATE_DEFINITIONS: Record<GateLetter, GateDefinition> = {
       { key: "vob_procedure_determined", label: "VOB tendering procedure determined", autoCheck: true },
       { key: "trade_packages_defined", label: "Trade packages defined with VOB/C references", autoCheck: true },
       { key: "bauantrag_submitted", label: "Bauantrag submitted (LPH 4)", autoCheck: false },
+      { key: "gaeb_math_clean", label: "GAEB BoQ arithmetic verified", autoCheck: true },
     ],
   },
   E: {
@@ -938,6 +939,10 @@ export const PROJECT_LIFECYCLE_STATES: Record<ProjectLifecycleState, { label: st
   detail_ready: { label: "Detail Ready", labelDe: "Detailplanung bereit", description: "Detailed planning and packaging sufficient for tender prep" },
   tender_ready: { label: "Tender Ready", labelDe: "Vergabe bereit", description: "All release prerequisites are complete" },
   released_for_tender: { label: "Released for Tender", labelDe: "Zur Vergabe freigegeben", description: "Tender package formally released" },
+  awarded: { label: "Awarded", labelDe: "Vergeben", description: "Bidder awarded; contracts being signed" },
+  execution: { label: "Execution", labelDe: "Ausführung", description: "Contracts signed; site work running" },
+  handover: { label: "Handover", labelDe: "Abnahme", description: "Formal Abnahme scheduled or in progress" },
+  closed: { label: "Closed", labelDe: "Abgeschlossen", description: "All Abnahmen complete; warranty period started" },
 };
 
 export const PROJECT_STATE_TRANSITIONS: StateTransitionRule[] = [
@@ -952,6 +957,11 @@ export const PROJECT_STATE_TRANSITIONS: StateTransitionRule[] = [
   { from: "cost_ready", to: "detail_ready", automatic: false, humanRequired: true, description: "Package structure defined and approved" },
   { from: "detail_ready", to: "tender_ready", automatic: false, humanRequired: true, description: "All tender prerequisites complete" },
   { from: "tender_ready", to: "released_for_tender", automatic: false, humanRequired: true, description: "Explicit human release action" },
+  // ─── Post-tender (V5 §3) ──────────────────────────────────────
+  { from: "released_for_tender", to: "awarded", automatic: false, humanRequired: true, description: "Bidder awarded; contract assigned" },
+  { from: "awarded", to: "execution", automatic: false, humanRequired: true, description: "Contract signed; site work starts" },
+  { from: "execution", to: "handover", automatic: false, humanRequired: true, description: "All work complete; Abnahme scheduled" },
+  { from: "handover", to: "closed", automatic: false, humanRequired: true, description: "All Abnahmen complete; warranty period active" },
 ];
 
 /**
@@ -1029,6 +1039,7 @@ export const READINESS_RULES = {
       { key: "tender_packages_complete", label: "Package definition complete" },
       { key: "tender_spd_approved", label: "Project description approved" },
       { key: "tender_release_available", label: "Tender release object available" },
+      { key: "tender_gaeb_math_clean", label: "GAEB arithmetic verified" },
       { key: "tender_released", label: "Tender formally released" },
     ],
   },
@@ -1046,4 +1057,5 @@ export const TENDER_RELEASE_PREREQUISITES = [
   { key: "packages_ready", label: "All packages marked tender-ready", category: "packages" },
   { key: "mandatory_approvals", label: "All mandatory approvals complete", category: "approvals" },
   { key: "gate_d_complete", label: "Gate D (Tender Preparation) complete", category: "gates" },
+  { key: "gaeb_math_verified", label: "GAEB arithmetic verified", category: "cost" },
 ] as const;

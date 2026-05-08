@@ -114,7 +114,7 @@ export default function SchedulePage() {
       const nextMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
       const daysInMonth = Math.ceil((Math.min(nextMonth.getTime(), max.getTime()) - cursor.getTime()) / (1000 * 60 * 60 * 24));
       ms.push({
-        label: cursor.toLocaleString("en", { month: "short", year: "2-digit" }),
+        label: cursor.toLocaleString("de-DE", { month: "short", year: "2-digit" }),
         start: monthStart,
         days: daysInMonth,
       });

@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db, projects, phases, tasks, milestones, users } from "@tenderfish/db";
 import { eq, and, asc, desc, inArray } from "drizzle-orm";
+import { logAudit } from "../utils/audit";
 
 // Verify project ownership helper
 async function verifyProject(projectId: string, workspaceId: string) {
@@ -70,8 +71,20 @@ export async function phaseRoutes(app: FastifyInstance) {
     });
     if (!phase) return reply.status(404).send({ error: "Phase not found" });
 
-    // If trying to mark complete, verify all required outputs are complete
-    if (body.status === "complete") {
+    const isManualOverride = body.manualOverride === true;
+    const overrideReason =
+      typeof body.overrideReason === "string" ? body.overrideReason.trim() : "";
+
+    // Manual overrides bypass the "all required outputs complete" precondition —
+    // that's the whole point of an override. The reason is required for audit.
+    if (isManualOverride) {
+      if (overrideReason.length < 10) {
+        return reply.status(400).send({
+          error: "Override reason required",
+          message: "Provide a reason of at least 10 characters when overriding phase status.",
+        });
+      }
+    } else if (body.status === "complete") {
       const requiredOutputs = await db.query.tasks.findMany({
         where: and(eq(tasks.phaseId, phase.id), eq(tasks.type, "required_output")),
       });
@@ -100,6 +113,19 @@ export async function phaseRoutes(app: FastifyInstance) {
       .set(updates)
       .where(eq(phases.id, phase.id))
       .returning();
+
+    if (isManualOverride && body.status !== undefined) {
+      await logAudit({
+        workspaceId: request.auth.workspaceId,
+        projectId: id,
+        userId: request.auth.userId,
+        action: "phase.manual_override",
+        entityType: "phase",
+        entityId: phase.id,
+        beforeState: { status: phase.status, lph: phase.lph },
+        afterState: { status: body.status, reason: overrideReason },
+      });
+    }
 
     return { data: updated };
   });

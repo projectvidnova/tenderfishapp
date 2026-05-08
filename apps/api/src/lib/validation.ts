@@ -225,6 +225,8 @@ export const updateTenderReleaseSchema = z.object({
   status: z.enum(["pending_review", "ready", "released", "recalled"]),
   recallReason: z.string().max(5000).optional(),
   notes: z.string().max(5000).optional(),
+  forceRelease: z.boolean().optional(),
+  overrideReason: z.string().min(1).max(5000).optional(),
 });
 
 // ─── Participants ─────────────────────────────────────────────
@@ -249,6 +251,231 @@ export const createParticipantSchema = z.object({
 
 export const updateParticipantSchema = createParticipantSchema.partial().extend({
   roleConfirmed: z.boolean().optional(),
+});
+
+// ─── Contracts (post-tender) ─────────────────────────────────
+
+export const createContractSchema = z.object({
+  packageId: z.string().uuid().optional(),
+  contractNumber: z.string().max(100).optional(),
+  title: z.string().min(1).max(500),
+  contractType: z.enum(["vob_b", "bgb_werkvertrag"]).default("vob_b"),
+  tenderingProcedure: z
+    .enum([
+      "oeffentliche_ausschreibung",
+      "beschraenkte_ausschreibung",
+      "beschraenkte_ausschreibung_mit_tw",
+      "verhandlungsvergabe",
+      "verhandlungsvergabe_mit_tw",
+      "wettbewerblicher_dialog",
+      "direktauftrag",
+    ])
+    .optional(),
+  contractorCompany: z.string().min(1).max(255),
+  contractorContact: z.string().max(255).optional(),
+  contractorEmail: z.string().email().optional(),
+  awardDate: z.string().optional(),
+  commencementDate: z.string().optional(),
+  completionDate: z.string().optional(),
+  contractValueNet: z.number().int().nonnegative().default(0),
+  contractValueGross: z.number().int().nonnegative().default(0),
+  retentionPercentage: z.number().int().nonnegative().default(500),
+  warrantyPeriodMonths: z.number().int().nonnegative().default(48),
+  costGroupCode: z.string().max(10).optional(),
+  notes: z.string().max(5000).optional(),
+});
+
+export const updateContractSchema = createContractSchema.partial().extend({
+  status: z.enum(["draft", "tendered", "awarded", "active", "in_warranty", "closed", "terminated"]).optional(),
+  abnahmeDate: z.string().optional(),
+  warrantyEndDate: z.string().optional(),
+  retentionAmount: z.number().int().nonnegative().optional(),
+});
+
+// ─── Payments ────────────────────────────────────────────────
+
+export const createPaymentSchema = z.object({
+  paymentNumber: z.string().min(1).max(50),
+  type: z.enum(["abschlagszahlung", "teilschlussrechnung", "schlussrechnung", "sicherheitseinbehalt"]),
+  invoiceDate: z.string(),
+  invoiceRef: z.string().max(255).optional(),
+  amountNet: z.number().int().nonnegative(),
+  amountGross: z.number().int().nonnegative(),
+  vatRate: z.number().int().nonnegative().default(1900),
+  retentionDeducted: z.number().int().nonnegative().default(0),
+  dueDate: z.string().optional(),
+  notes: z.string().max(5000).optional(),
+});
+
+export const updatePaymentSchema = z.object({
+  status: z.enum(["submitted", "under_review", "approved", "paid", "disputed"]).optional(),
+  paidDate: z.string().optional(),
+  notes: z.string().max(5000).optional(),
+});
+
+// ─── Abnahmen ────────────────────────────────────────────────
+
+export const createAbnahmeSchema = z.object({
+  type: z.enum(["foermliche_abnahme", "stillschweigende_abnahme", "teilabnahme", "fiktive_abnahme"]),
+  scheduledDate: z.string(),
+  attendees: z
+    .array(
+      z.object({
+        name: z.string(),
+        role: z.string(),
+        company: z.string().optional(),
+      })
+    )
+    .default([]),
+  notes: z.string().max(5000).optional(),
+});
+
+export const updateAbnahmeSchema = z.object({
+  actualDate: z.string().optional(),
+  status: z
+    .enum(["scheduled", "completed_without_defects", "completed_with_defects", "refused"])
+    .optional(),
+  defects: z
+    .array(
+      z.object({
+        description: z.string(),
+        severity: z.string(),
+        deadline: z.string().optional(),
+        resolved: z.boolean().default(false),
+      })
+    )
+    .optional(),
+  warrantyStartDate: z.string().optional(),
+  protocolRef: z.string().optional(),
+  notes: z.string().max(5000).optional(),
+});
+
+// ─── Nachträge (change orders) ───────────────────────────────
+
+export const createNachtragSchema = z.object({
+  nachtragNumber: z.string().min(1).max(50),
+  title: z.string().min(1).max(500),
+  type: z.enum([
+    "mengenabweichung",
+    "geaenderte_leistung",
+    "zusaetzliche_leistung",
+    "selbst_uebernahme",
+    "behinderung",
+    "stundenlohn",
+  ]),
+  vobReference: z.string().max(100).optional(),
+  description: z.string().min(1),
+  requestedAmountNet: z.number().int().default(0),
+  scheduleImpactDays: z.number().int().default(0),
+  submittedBy: z.string().min(1).max(255),
+  supportingDocuments: z.array(z.string()).default([]),
+});
+
+export const updateNachtragSchema = z.object({
+  status: z
+    .enum(["draft", "submitted", "under_review", "approved", "rejected", "partially_approved"])
+    .optional(),
+  approvedAmountNet: z.number().int().nullable().optional(),
+  notes: z.string().max(5000).optional(),
+});
+
+// ─── Site/execution data (matches existing UI shape) ──────────
+
+export const createExecutionSubmissionSchema = z.object({
+  title: z.string().min(1).max(500),
+  packageName: z.string().max(500).optional(),
+  contractor: z.string().max(255).optional(),
+  submittedBy: z.string().max(255).optional(),
+  submissionDate: z.string(),
+});
+
+export const reviewExecutionSubmissionSchema = z.object({
+  reviewOutcome: z
+    .enum(["approved", "approved_with_comments", "resubmission_required", "rejected"])
+    .optional(),
+  reviewComment: z.string().max(5000).optional(),
+  status: z
+    .enum(["received", "completeness_check", "assigned", "under_review", "deviation_log", "closed"])
+    .optional(),
+});
+
+export const createDelaySchema = z.object({
+  eventDate: z.string(),
+  reportedBy: z.string().min(1).max(255),
+  description: z.string().min(1),
+  causeCategory: z.enum([
+    "client_delay",
+    "missing_approval",
+    "design_change",
+    "missing_information",
+    "consultant_delay",
+    "contractor_delay",
+    "site_condition",
+    "authority_issue",
+    "logistics_issue",
+    "unknown",
+  ]),
+  scheduleImpactDays: z.number().int().default(0),
+  initialResponsibility: z.string().optional(),
+});
+
+export const updateDelaySchema = z.object({
+  status: z.enum(["open", "under_review", "resolved", "escalated"]).optional(),
+  scheduleImpactDays: z.number().int().optional(),
+  initialResponsibility: z.string().optional(),
+});
+
+export const createRiskSchema = z.object({
+  name: z.string().min(1).max(500),
+  category: z.enum([
+    "missing_information",
+    "deadline_risk",
+    "coordination_risk",
+    "approval_risk",
+    "execution_risk",
+    "communication_risk",
+    "contract_interface_risk",
+    "external_authority",
+  ]),
+  description: z.string().optional(),
+  probability: z.enum(["low", "medium", "high"]).default("medium"),
+  impact: z.enum(["low", "medium", "high"]).default("medium"),
+  mitigationAction: z.string().optional(),
+});
+
+export const updateRiskSchema = createRiskSchema.partial().extend({
+  status: z.enum(["open", "mitigated", "closed", "accepted"]).optional(),
+  ownerUserId: z.string().uuid().nullable().optional(),
+});
+
+export const createDiaryEntrySchema = z.object({
+  entryDate: z.string(),
+  weatherData: z
+    .object({
+      temperature: z.string().optional(),
+      precipitation: z.string().optional(),
+      wind: z.string().optional(),
+    })
+    .optional(),
+  personnelOnSite: z
+    .array(z.object({ participantId: z.string(), headcount: z.number().int().nonnegative() }))
+    .default([]),
+  defectsLogged: z
+    .array(
+      z.object({
+        description: z.string(),
+        severity: z.string(),
+        coordinates: z.object({ x: z.number(), y: z.number(), z: z.number().optional() }),
+      })
+    )
+    .default([]),
+  photoEvidenceRefs: z.array(z.string()).default([]),
+  activitiesPerformed: z.string().optional(),
+});
+
+export const updateDiaryEntrySchema = z.object({
+  status: z.enum(["draft", "signed_off", "disputed"]).optional(),
+  activitiesPerformed: z.string().optional(),
 });
 
 // ─── Helper ───────────────────────────────────────────────────

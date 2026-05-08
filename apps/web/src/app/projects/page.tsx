@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, FolderKanban } from "lucide-react";
+import AppShell from "@/components/layout/AppShell";
 import { config } from "@/lib/config";
 
 interface Project {
@@ -29,6 +30,7 @@ export default function ProjectsPage() {
   }, []);
 
   return (
+    <AppShell>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -101,5 +103,6 @@ export default function ProjectsPage() {
         </div>
       )}
     </div>
+    </AppShell>
   );
 }

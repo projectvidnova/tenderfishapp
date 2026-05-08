@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { Modal } from "@/components/ui/Modal";
+import { formatDate, formatDateTime } from "@/lib/formatters";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -237,7 +238,7 @@ export default function ExecutionPage() {
                 ) : (
                   submissions.map((s) => (
                     <tr key={s.id} className="border-b border-border/40 hover:bg-bg-inset/30">
-                      <td className="px-4 py-3 text-xs">{new Date(s.submissionDate).toLocaleDateString()}</td>
+                      <td className="px-4 py-3 text-xs">{formatDate(s.submissionDate)}</td>
                       <td className="px-4 py-3 text-xs">{s.contractor || "—"}</td>
                       <td className="px-4 py-3 text-xs">{s.packageName || "—"}</td>
                       <td className="px-4 py-3 text-xs max-w-[200px] truncate">{s.title}</td>
@@ -285,11 +286,11 @@ export default function ExecutionPage() {
                       <td className="px-4 py-3 text-xs font-medium">{s.title}</td>
                       <td className="px-4 py-3 text-xs">{s.packageName || "—"}</td>
                       <td className="px-4 py-3 text-xs">{s.contractor || "—"}</td>
-                      <td className="px-4 py-3 text-xs">{new Date(s.submissionDate).toLocaleDateString()}</td>
+                      <td className="px-4 py-3 text-xs">{formatDate(s.submissionDate)}</td>
                       <td className="px-4 py-3 text-xs">
                         {s.reviewDueDate ? (
                           <span className={new Date(s.reviewDueDate) < new Date() ? "text-status-reject font-semibold" : ""}>
-                            {new Date(s.reviewDueDate).toLocaleDateString()}
+                            {formatDate(s.reviewDueDate)}
                           </span>
                         ) : "—"}
                       </td>
@@ -329,7 +330,7 @@ export default function ExecutionPage() {
                           {(s.reviewOutcome || "").replace(/_/g, " ")}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs">{s.reviewDate ? new Date(s.reviewDate).toLocaleDateString() : "—"}</td>
+                      <td className="px-4 py-3 text-xs">{s.reviewDate ? formatDate(s.reviewDate) : "—"}</td>
                     </tr>
                   ))
                 )}
@@ -416,7 +417,7 @@ export default function ExecutionPage() {
                         <td className="px-4 py-3 text-xs font-medium">{s.title}</td>
                         <td className="px-4 py-3 text-xs">{s.packageName || "—"}</td>
                         <td className="px-4 py-3 text-xs">{s.contractor || "—"}</td>
-                        <td className="px-4 py-3 text-xs">{s.reviewDate ? new Date(s.reviewDate).toLocaleDateString() : "—"}</td>
+                        <td className="px-4 py-3 text-xs">{s.reviewDate ? formatDate(s.reviewDate) : "—"}</td>
                         <td className="px-4 py-3">
                           <button className="text-xs bg-status-emerald-bg text-status-emerald-fg px-2 py-1 rounded hover:bg-status-emerald-bg">
                             Confirm ready
@@ -518,7 +519,7 @@ export default function ExecutionPage() {
               </div>
               <div>
                 <span className="block text-[10px] text-text-quaternary uppercase">Submitted</span>
-                {new Date(selected.submissionDate).toLocaleDateString()}
+                {formatDate(selected.submissionDate)}
               </div>
             </div>
 
@@ -530,7 +531,7 @@ export default function ExecutionPage() {
                   {selected.reviewOutcome.replace(/_/g, " ")}
                 </span>
                 {selected.reviewComment && <p className="text-xs text-text-secondary mt-1">{selected.reviewComment}</p>}
-                {selected.reviewDate && <p className="text-[10px] text-text-quaternary mt-1">{new Date(selected.reviewDate).toLocaleString()}</p>}
+                {selected.reviewDate && <p className="text-[10px] text-text-quaternary mt-1">{formatDateTime(selected.reviewDate)}</p>}
               </div>
             )}
 

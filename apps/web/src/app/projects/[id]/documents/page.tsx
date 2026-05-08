@@ -4,8 +4,86 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { Modal } from "@/components/ui/Modal";
+import { formatDate } from "@/lib/formatters";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
+
+function FilePreview({
+  projectId,
+  docId,
+  fallbackName,
+}: {
+  projectId: string;
+  docId: string;
+  fallbackName: string;
+}) {
+  const [data, setData] = useState<{ url: string | null; fileName: string; mimeType: string } | null>(null);
+  const [errored, setErrored] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`${API}/api/projects/${projectId}/documents/${docId}/file-url`, {
+      credentials: "include",
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (alive && j) setData(j.data);
+      })
+      .catch(() => alive && setErrored(true));
+    return () => {
+      alive = false;
+    };
+  }, [projectId, docId]);
+
+  const name = data?.fileName || "";
+  const ext = name.includes(".") ? name.slice(name.lastIndexOf(".") + 1).toLowerCase() : "";
+  const isImage = IMAGE_EXT.has(ext);
+  const isPdf = ext === "pdf";
+
+  let icon: string;
+  let tint: string;
+  if (isPdf) {
+    icon = "PDF";
+    tint = "bg-red-500/10 text-red-500 border-red-500/30";
+  } else if (ext === "doc" || ext === "docx") {
+    icon = "DOC";
+    tint = "bg-blue-500/10 text-blue-500 border-blue-500/30";
+  } else if (ext === "xls" || ext === "xlsx") {
+    icon = "XLS";
+    tint = "bg-green-500/10 text-green-500 border-green-500/30";
+  } else if (ext === "xml") {
+    icon = "XML";
+    tint = "bg-purple-500/10 text-purple-500 border-purple-500/30";
+  } else {
+    icon = ext.toUpperCase().slice(0, 4) || "FILE";
+    tint = "bg-bg-inset text-text-tertiary border-border";
+  }
+
+  if (isImage && data?.url && !errored) {
+    return (
+      <div className="w-12 h-12 rounded-sm overflow-hidden border border-border bg-bg-inset shrink-0">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={data.url}
+          alt={name}
+          className="w-full h-full object-cover"
+          onError={() => setErrored(true)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`w-12 h-12 rounded-sm border flex items-center justify-center text-[10px] font-mono font-semibold shrink-0 ${tint}`}
+      title={name || fallbackName}
+    >
+      {icon}
+    </div>
+  );
+}
 
 const DOC_TYPES = [
   "Project Briefs",
@@ -67,7 +145,10 @@ export default function DocumentsPage() {
   const [showUpload, setShowUpload] = useState(false);
   const [showDetail, setShowDetail] = useState<Document | null>(null);
   const [form, setForm] = useState({ name: "", type: DOC_TYPES[0] });
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
   const [changeNote, setChangeNote] = useState("");
+  const [versionFile, setVersionFile] = useState<File | null>(null);
 
   const fetchDocs = useCallback(async () => {
     try {
@@ -81,16 +162,34 @@ export default function DocumentsPage() {
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
   async function createDoc() {
-    if (!form.name.trim()) return;
+    const effectiveName = form.name.trim() || uploadFile?.name || "";
+    if (!effectiveName) return;
+    setUploadBusy(true);
+    const fd = new FormData();
+    fd.append("name", effectiveName);
+    fd.append("type", form.type);
+    if (uploadFile) fd.append("file", uploadFile);
     await fetch(`${API}/api/projects/${id}/documents`, {
       credentials: "include",
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: fd,
     });
     setForm({ name: "", type: DOC_TYPES[0] });
+    setUploadFile(null);
     setShowUpload(false);
+    setUploadBusy(false);
     fetchDocs();
+  }
+
+  async function downloadDoc(docId: string) {
+    const res = await fetch(`${API}/api/projects/${id}/documents/${docId}/file-url`, {
+      credentials: "include",
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    const url = json?.data?.url;
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
+    else alert("This document has no stored file yet. Upload a file when creating it or via 'Upload New Version'.");
   }
 
   async function updateStatus(docId: string, status: string) {
@@ -105,13 +204,16 @@ export default function DocumentsPage() {
   }
 
   async function newVersion(docId: string) {
+    const fd = new FormData();
+    if (changeNote) fd.append("changesNote", changeNote);
+    if (versionFile) fd.append("file", versionFile);
     await fetch(`${API}/api/projects/${id}/documents/${docId}/versions`, {
       credentials: "include",
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ changesNote: changeNote || undefined }),
+      body: fd,
     });
     setChangeNote("");
+    setVersionFile(null);
     setShowDetail(null);
     fetchDocs();
   }
@@ -171,6 +273,7 @@ export default function DocumentsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-bg-inset/30">
+                  <th className="px-4 py-2 w-16"></th>
                   <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide">Name</th>
                   <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-28">Type</th>
                   <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase tracking-wide w-20">Version</th>
@@ -181,13 +284,26 @@ export default function DocumentsPage() {
               </thead>
               <tbody>
                 {docs.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-text-quaternary">No documents found.</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-text-quaternary">No documents found.</td></tr>
                 ) : docs.map((doc) => {
                   const st = STATUS_LABELS[doc.status] || STATUS_LABELS.draft;
                   const lastVersion = doc.versions[doc.versions.length - 1];
+                  const uploadedFile = lastVersion?.filePath
+                    ? lastVersion.filePath.split("/").pop() ?? ""
+                    : "";
                   return (
                     <tr key={doc.id} className="border-b border-border last:border-0 hover:bg-bg-inset/20">
-                      <td className="px-4 py-3 font-medium text-text-primary">{doc.name}</td>
+                      <td className="px-4 py-3">
+                        <FilePreview projectId={id} docId={doc.id} fallbackName={doc.name} />
+                      </td>
+                      <td className="px-4 py-3 text-text-primary">
+                        <div className="font-medium">{doc.name}</div>
+                        {uploadedFile && (
+                          <div className="text-xs text-text-tertiary mt-0.5 font-mono truncate max-w-xs" title={uploadedFile}>
+                            {uploadedFile}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-xs text-text-tertiary">{doc.type}</td>
                       <td className="px-4 py-3 text-xs font-mono text-text-tertiary">v{doc.currentVersion}</td>
                       <td className="px-4 py-3">
@@ -196,12 +312,20 @@ export default function DocumentsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-xs text-text-quaternary font-mono">
-                        {lastVersion ? new Date(lastVersion.date).toLocaleDateString() : "—"}
+                        {lastVersion ? formatDate(lastVersion.date) : "—"}
                       </td>
                       <td className="px-4 py-3">
-                        <button className="text-xs text-brand-orange hover:text-brand-orange-dark font-medium" onClick={() => setShowDetail(doc)}>
-                          View
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <button className="text-xs text-brand-orange hover:text-brand-orange-dark font-medium" onClick={() => setShowDetail(doc)}>
+                            View
+                          </button>
+                          <button
+                            className="text-xs text-text-tertiary hover:text-brand-orange font-medium"
+                            onClick={() => downloadDoc(doc.id)}
+                          >
+                            Download
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -213,8 +337,32 @@ export default function DocumentsPage() {
       </div>
 
       {/* Upload Modal */}
-      <Modal open={showUpload} onClose={() => setShowUpload(false)} title="Upload New Document">
+      <Modal
+        open={showUpload}
+        onClose={() => {
+          setShowUpload(false);
+          setUploadFile(null);
+        }}
+        title="Upload New Document"
+      >
         <div className="space-y-4">
+          <div>
+            <label className="label">File</label>
+            <input
+              type="file"
+              className="input"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                setUploadFile(f);
+                if (f && !form.name.trim()) setForm({ ...form, name: f.name });
+              }}
+            />
+            {uploadFile && (
+              <p className="mt-1 text-xs text-text-tertiary font-mono truncate">
+                {uploadFile.name} · {(uploadFile.size / 1024).toFixed(0)} KB
+              </p>
+            )}
+          </div>
           <div>
             <label className="label">Document Name *</label>
             <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Site Survey Report" />
@@ -226,8 +374,14 @@ export default function DocumentsPage() {
             </select>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button className="btn-secondary" onClick={() => setShowUpload(false)}>Cancel</button>
-            <button className="btn-primary" onClick={createDoc} disabled={!form.name.trim()}>Upload</button>
+            <button className="btn-secondary" onClick={() => { setShowUpload(false); setUploadFile(null); }}>Cancel</button>
+            <button
+              className="btn-primary"
+              onClick={createDoc}
+              disabled={uploadBusy || (!form.name.trim() && !uploadFile)}
+            >
+              {uploadBusy ? "Uploading…" : "Upload"}
+            </button>
           </div>
         </div>
       </Modal>
@@ -263,7 +417,7 @@ export default function DocumentsPage() {
                   <div key={v.version} className="flex items-center justify-between text-sm border-b border-border pb-2 last:border-0">
                     <div>
                       <span className="font-mono text-xs text-text-tertiary">v{v.version}</span>
-                      <span className="ml-2">{new Date(v.date).toLocaleDateString()}</span>
+                      <span className="ml-2">{formatDate(v.date)}</span>
                       {v.changesNote && <span className="ml-2 text-xs text-text-quaternary">— {v.changesNote}</span>}
                     </div>
                     <span className={`inline-flex items-center px-1.5 py-0.5 text-xs rounded-sm ${(STATUS_LABELS[v.status] || STATUS_LABELS.draft).cls}`}>
@@ -293,13 +447,29 @@ export default function DocumentsPage() {
             {/* New version */}
             <div className="border-t border-border pt-4">
               <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-2">Upload New Version</h3>
-              <div className="flex gap-2 items-end">
-                <div className="flex-1">
-                  <input className="input text-sm" value={changeNote} onChange={(e) => setChangeNote(e.target.value)} placeholder="Change note (optional)" />
+              <div className="space-y-2">
+                <input
+                  type="file"
+                  className="input text-sm"
+                  onChange={(e) => setVersionFile(e.target.files?.[0] ?? null)}
+                />
+                {versionFile && (
+                  <p className="text-xs text-text-tertiary font-mono truncate">
+                    {versionFile.name} · {(versionFile.size / 1024).toFixed(0)} KB
+                  </p>
+                )}
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <input className="input text-sm" value={changeNote} onChange={(e) => setChangeNote(e.target.value)} placeholder="Change note (optional)" />
+                  </div>
+                  <button
+                    className="btn-primary text-sm"
+                    onClick={() => newVersion(showDetail.id)}
+                    disabled={!versionFile && !changeNote}
+                  >
+                    Upload v{showDetail.currentVersion + 1}
+                  </button>
                 </div>
-                <button className="btn-primary text-sm" onClick={() => newVersion(showDetail.id)}>
-                  Upload v{showDetail.currentVersion + 1}
-                </button>
               </div>
             </div>
 

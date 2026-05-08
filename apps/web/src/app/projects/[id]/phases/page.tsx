@@ -112,6 +112,9 @@ export default function PhasesPage() {
   const [saving, setSaving] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newTask, setNewTask] = useState({ name: "", description: "", dueDate: "", decisionMaker: "", documentType: "", documentRequiredFor: "" });
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrideStatus, setOverrideStatus] = useState<"not_started" | "active" | "complete">("complete");
+  const [overrideReason, setOverrideReason] = useState("");
 
   const selectedPhase = phases.find((p) => p.lph === selectedLph);
 
@@ -144,17 +147,28 @@ export default function PhasesPage() {
     if (!loading) fetchTasks();
   }, [fetchTasks, loading]);
 
-  async function updatePhase(field: string, value: string) {
+  async function submitOverride() {
+    if (!selectedPhase || overrideReason.trim().length < 10) return;
     setSaving(true);
     try {
-      await fetch(`${API}/api/projects/${id}/phases/${selectedLph}`, {
+      const res = await fetch(`${API}/api/projects/${id}/phases/${selectedLph}`, {
         credentials: "include",
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [field]: value }),
+        body: JSON.stringify({
+          status: overrideStatus,
+          manualOverride: true,
+          overrideReason: overrideReason.trim(),
+        }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err?.message || err?.error || "Override failed");
+      }
       await fetchPhases();
     } catch { /* ignore */ }
+    setOverrideOpen(false);
+    setOverrideReason("");
     setSaving(false);
   }
 
@@ -250,15 +264,24 @@ export default function PhasesPage() {
                   <StatusBadge status={selectedPhase.status} />
                   {saving && <span className="text-xs text-text-quaternary animate-pulse">Saved</span>}
                 </div>
-                <select
-                  value={selectedPhase.status}
-                  onChange={(e) => updatePhase("status", e.target.value)}
-                  className="input w-auto text-xs"
-                >
-                  <option value="not_started">Not Started</option>
-                  <option value="active">Active</option>
-                  <option value="complete">Complete</option>
-                </select>
+                <div className="flex items-center gap-3">
+                  <span className="text-[11px] text-text-quaternary leading-snug max-w-xs text-right">
+                    Status is derived automatically from completed gates. Use override only as a last resort.
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-secondary text-xs text-orange-600 border-orange-300 hover:bg-orange-50"
+                    onClick={() => {
+                      setOverrideStatus(
+                        (selectedPhase.status as "not_started" | "active" | "complete") ?? "complete"
+                      );
+                      setOverrideReason("");
+                      setOverrideOpen(true);
+                    }}
+                  >
+                    Override status
+                  </button>
+                </div>
               </div>
 
               <p className="text-sm text-text-secondary">{selectedPhase.objective}</p>
@@ -598,6 +621,57 @@ export default function PhasesPage() {
             <div className="flex justify-end gap-3 pt-2">
               <button className="btn-secondary" onClick={() => setShowAddModal(false)}>Cancel</button>
               <button className="btn-primary" onClick={addTask} disabled={!newTask.name.trim()}>Add</button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Manual phase status override — last-resort fallback when gate-derived
+            status doesn't reflect reality. Requires a written reason for audit. */}
+        <Modal
+          open={overrideOpen}
+          onClose={() => setOverrideOpen(false)}
+          title="Override phase status (last resort)"
+          width="max-w-lg"
+        >
+          <div className="space-y-4 text-sm">
+            <p className="text-text-secondary">
+              Phase status is normally derived automatically from gate completions.
+              Use this only when a gate-derived status is wrong and you need to
+              correct it manually. The change is recorded with your reason.
+            </p>
+            <div>
+              <label className="label">New status</label>
+              <select
+                className="input"
+                value={overrideStatus}
+                onChange={(e) => setOverrideStatus(e.target.value as typeof overrideStatus)}
+              >
+                <option value="not_started">Not Started</option>
+                <option value="active">Active</option>
+                <option value="complete">Complete</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">Reason (required, min 10 chars)</label>
+              <textarea
+                className="input"
+                rows={3}
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+                placeholder="e.g. Client signed off this phase off-system on 2026-05-08"
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button className="btn-secondary" onClick={() => setOverrideOpen(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn-primary text-orange-600 border-orange-300"
+                onClick={submitOverride}
+                disabled={overrideReason.trim().length < 10 || saving}
+              >
+                Confirm override
+              </button>
             </div>
           </div>
         </Modal>

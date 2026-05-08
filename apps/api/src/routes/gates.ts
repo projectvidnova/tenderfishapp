@@ -1,11 +1,30 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { db, projects, gates, approvals, users, projectFacts, documents } from "@tenderfish/db";
-import { eq, and, asc, inArray } from "drizzle-orm";
-import { requireAccess } from "../middleware/rbac";
+import {
+  db,
+  projects,
+  gates,
+  approvals,
+  users,
+  documents,
+  projectFacts,
+  type GateCriterionStateSnapshot,
+} from "@tenderfish/db";
+import { eq, and, inArray } from "drizzle-orm";
 import { logAudit } from "../utils/audit";
 import { broadcastNotification, createNotification } from "../utils/notify";
 import { gateOverrideSchema, validateBody } from "../lib/validation";
-import { processFile } from "../services/ai-pipeline";
+import { processFile, attestCriteriaFromEvidenceText } from "../services/ai-pipeline";
+import { refreshAndAutoCompleteGates, syncPhasesFromGateCompletions } from "../services/gate-evaluator";
+import { insertFactsFromProcessFileOutput } from "../services/process-file-facts";
+import { rescanAllStoredProjectDocuments } from "../services/project-document-rescan";
+import { tryPersistDocumentFileToStorage } from "../services/document-version-storage";
+import { resolveDeclaredMimeType } from "../services/file-parser";
+
+function isGateRowUuid(param: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    param
+  );
+}
 
 async function verifyProject(projectId: string, workspaceId: string) {
   return db.query.projects.findFirst({
@@ -13,141 +32,11 @@ async function verifyProject(projectId: string, workspaceId: string) {
   });
 }
 
-function hasFactValue(
-  factIndex: Map<string, { value: string | null; dataState: string }[]>,
-  fieldNames: string[]
-): boolean {
-  for (const fieldName of fieldNames) {
-    const entries = factIndex.get(fieldName) || [];
-    if (entries.some((entry) => entry.dataState !== "MISSING" && !!entry.value && entry.value.trim().length > 0)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function isBuildingPermitConfirmed(
-  factIndex: Map<string, { value: string | null; dataState: string }[]>
-): boolean {
-  const entries = [
-    ...(factIndex.get("overview_building_permit_status") || []),
-    ...(factIndex.get("building_permit_status") || []),
-  ];
-  return entries.some((entry) => entry.dataState === "CONFIRMED");
-}
-
-function evaluateCriterion(
-  criterionKey: string,
-  factIndex: Map<string, { value: string | null; dataState: string }[]>
-): boolean {
-  const map: Record<string, string[]> = {
-    project_name: ["project_summary"],
-    location: ["location"],
-    client: ["overview_client_name", "client_name"],
-    time_anchor: ["target_completion", "known_deadlines", "schedule"],
-    scope_description: ["project_summary", "scope_description"],
-    project_objective: ["project_summary", "scope_description"],
-    constraints_identified: ["known_constraints"],
-    risk_scan: ["mentioned_risks"],
-    lph_roadmap: ["current_hoai_phase", "overview_commissioned_phases", "schedule"],
-    responsibility_draft: ["stakeholder", "known_consultants"],
-    kostenrahmen: ["estimated_construction_cost", "cost_item"],
-    hoai_fee_zone: ["hoai_fee_zone", "standards_mapping"],
-    scope_per_discipline: ["hoai_service_scope", "standards_mapping"],
-    project_state_visible: ["current_hoai_phase", "project_summary"],
-    outputs_defined: ["known_trade_packages", "standards_mapping"],
-    input_docs_available: ["project_summary"],
-    interfaces_identified: ["known_consultants", "standards_mapping"],
-    internal_approval_to_invite: ["mentioned_approvals"],
-    kostenschaetzung: ["cost_per_sqm_estimate", "cost_item"],
-    hoai_scope_defined: ["hoai_service_scope", "standards_mapping"],
-    tender_docs_approved: ["known_trade_packages", "standards_mapping"],
-    consultant_inputs_complete: ["known_consultants", "stakeholder"],
-    open_decisions_resolved: ["decision_authority", "mentioned_approvals"],
-    pricing_model_ready: ["estimated_construction_cost", "cost_item"],
-    procurement_model_confirmed: ["procurement_model", "procurement_model_vob"],
-    kostenberechnung: ["cost_item", "estimated_construction_cost"],
-    vob_procedure_determined: ["tendering_procedure_type", "standards_mapping"],
-    trade_packages_defined: ["known_trade_packages", "standards_mapping"],
-    contracts_awarded: ["contract_type_preference", "standards_mapping"],
-    execution_drawings_approved: ["mentioned_approvals"],
-    review_workflow_configured: ["mentioned_approvals", "project_summary"],
-    site_team_onboarded: ["stakeholder", "known_consultants"],
-    quality_plan_ready: ["mentioned_approvals", "project_summary"],
-    kostenanschlag: ["cost_item"],
-    sigeko_plan: ["sigeko_required", "standards_mapping"],
-    baugenehmigung: ["building_permit_status", "overview_building_permit_status"],
-    punch_list_closed: ["mentioned_approvals"],
-    final_docs_submitted: ["mentioned_approvals"],
-    all_reviews_closed: ["mentioned_approvals"],
-    client_acceptance: ["decision_authority"],
-    invoicing_complete: ["estimated_construction_cost", "cost_item"],
-    kostenfeststellung: ["cost_item"],
-    abnahmen_complete: ["mentioned_approvals"],
-    warranty_tracking: ["mentioned_approvals"],
-  };
-
-  if (criterionKey === "bauantrag_submitted" || criterionKey === "baugenehmigung") {
-    return isBuildingPermitConfirmed(factIndex);
-  }
-  const fields = map[criterionKey];
-  if (!fields) return false;
-  return hasFactValue(factIndex, fields);
-}
-
-async function refreshGateCriteriaFromFacts(projectId: string) {
-  const [facts, gateRows] = await Promise.all([
-    db.query.projectFacts.findMany({
-      where: eq(projectFacts.projectId, projectId),
-    }),
-    db.query.gates.findMany({
-      where: eq(gates.projectId, projectId),
-      orderBy: asc(gates.gate),
-    }),
-  ]);
-
-  const factIndex = new Map<string, { value: string | null; dataState: string }[]>();
-  for (const fact of facts) {
-    const existing = factIndex.get(fact.fieldName) || [];
-    existing.push({ value: fact.value, dataState: fact.dataState });
-    factIndex.set(fact.fieldName, existing);
-  }
-
-  for (const gateRow of gateRows) {
-    const currentCriteria = gateRow.criteria as {
-      key: string;
-      label: string;
-      met: boolean;
-      autoCheck: boolean;
-    }[];
-
-    const mergedCriteria = currentCriteria.map((existing) => {
-      return {
-        ...existing,
-        met: evaluateCriterion(existing.key, factIndex),
-        autoCheck: true,
-      };
-    });
-
-    let nextStatus = gateRow.status;
-    if (nextStatus !== "complete" && nextStatus !== "overridden") {
-      nextStatus = "in_progress";
-    }
-
-    await db
-      .update(gates)
-      .set({
-        criteria: mergedCriteria,
-        status: nextStatus,
-      })
-      .where(eq(gates.id, gateRow.id));
-  }
-}
 
 export async function gateRoutes(app: FastifyInstance) {
   // ─── GATES ──────────────────────────────────────────────────
 
-  // GET /api/projects/:id/gates/detail — all gates with readiness %
+  // GET /api/projects/:id/gates/detail — all gates with readiness % + attestation evidence
   app.get("/projects/:id/gates/detail", async (request: FastifyRequest, reply: FastifyReply) => {
     if (!request.auth) return reply.status(401).send({ error: "Unauthorized" });
     const { id } = request.params as { id: string };
@@ -155,24 +44,88 @@ export async function gateRoutes(app: FastifyInstance) {
     const project = await verifyProject(id, request.auth.workspaceId);
     if (!project) return reply.status(404).send({ error: "Project not found" });
 
-    const gateList = await db.query.gates.findMany({
-      where: eq(gates.projectId, id),
-    });
+    const [gateList, attestationFacts] = await Promise.all([
+      db.query.gates.findMany({ where: eq(gates.projectId, id) }),
+      db.query.projectFacts.findMany({
+        where: and(
+          eq(projectFacts.projectId, id),
+          eq(projectFacts.fieldName, "gate_evidence_attestation")
+        ),
+      }),
+    ]);
 
-    // Enrich with readiness percentage
+    // Index attestations by (gate, criterionKey). Most recent wins per pair.
+    type Attestation = {
+      supporting_quote: string;
+      source_document_id: string;
+      source_document_name?: string;
+      reason: string;
+    };
+    const attIndex = new Map<string, Attestation>();
+    const docIdsNeeded = new Set<string>();
+    for (const fact of attestationFacts) {
+      if (!fact.value) continue;
+      try {
+        const parsed = JSON.parse(fact.value) as {
+          criterion_key?: unknown;
+          gate?: unknown;
+          supporting_quote?: unknown;
+          source_document_id?: unknown;
+          reason?: unknown;
+        };
+        const ckey = typeof parsed.criterion_key === "string" ? parsed.criterion_key : "";
+        const gate = typeof parsed.gate === "string" ? parsed.gate : "";
+        if (!ckey || !gate) continue;
+        const key = `${gate}::${ckey}`;
+        const att: Attestation = {
+          supporting_quote:
+            typeof parsed.supporting_quote === "string" ? parsed.supporting_quote : "",
+          source_document_id:
+            typeof parsed.source_document_id === "string" ? parsed.source_document_id : "",
+          reason: typeof parsed.reason === "string" ? parsed.reason : "",
+        };
+        if (att.source_document_id) docIdsNeeded.add(att.source_document_id);
+        attIndex.set(key, att);
+      } catch {
+        // Skip malformed attestation rows.
+      }
+    }
+
+    // Look up document names so the UI can display "Confirmed by [doc]".
+    const docNameById = new Map<string, string>();
+    if (docIdsNeeded.size > 0) {
+      const docRows = await db.query.documents.findMany({
+        where: inArray(documents.id, [...docIdsNeeded]),
+      });
+      for (const d of docRows) docNameById.set(d.id, d.name);
+    }
+
     const enriched = gateList.map((g) => {
-      const criteria = g.criteria as { key: string; label: string; met: boolean; autoCheck: boolean }[];
-      const total = criteria.length;
-      const met = criteria.filter((c) => c.met).length;
+      const criteria = g.criteria as GateCriterionStateSnapshot[];
+      const enrichedCriteria = criteria.map((c) => {
+        const att = attIndex.get(`${g.gate}::${c.key}`);
+        if (!att) return c;
+        return {
+          ...c,
+          attestation: {
+            supporting_quote: att.supporting_quote,
+            source_document_id: att.source_document_id,
+            source_document_name: docNameById.get(att.source_document_id) ?? null,
+            reason: att.reason,
+          },
+        };
+      });
+      const total = enrichedCriteria.length;
+      const met = enrichedCriteria.filter((c) => c.met).length;
       return {
         ...g,
+        criteria: enrichedCriteria,
         readinessPercent: total > 0 ? Math.round((met / total) * 100) : 0,
         criteriaCount: total,
         criteriaMet: met,
       };
     });
 
-    // Sort by gate letter
     enriched.sort((a, b) => a.gate.localeCompare(b.gate));
 
     return { data: enriched };
@@ -199,7 +152,7 @@ export async function gateRoutes(app: FastifyInstance) {
     }
 
     // Check all criteria are met
-    const criteria = gateRecord.criteria as { key: string; label: string; met: boolean; autoCheck: boolean }[];
+    const criteria = gateRecord.criteria as GateCriterionStateSnapshot[];
     const unmet = criteria.filter((c) => !c.met);
     if (unmet.length > 0) {
       return reply.status(400).send({
@@ -242,6 +195,11 @@ export async function gateRoutes(app: FastifyInstance) {
         await db.update(gates).set({ status: "in_progress" }).where(eq(gates.id, nextGate.id));
       }
     }
+
+    // Advance the HOAI lifecycle journey shown on the project overview so phases
+    // reflect the newly completed gate (e.g. completing Gate B marks LPH 1+2 complete
+    // and sets LPH 3 active).
+    await syncPhasesFromGateCompletions(id);
 
     return { data: updated };
   });
@@ -319,49 +277,99 @@ export async function gateRoutes(app: FastifyInstance) {
       }
     }
 
+    // Advance the HOAI lifecycle journey for the override path too (overrides
+    // count as gate progression for phase mapping purposes).
+    await syncPhasesFromGateCompletions(id);
+
     return { data: updated };
   });
 
-  // PATCH /api/projects/:id/gates/:gate/criteria/:key — toggle criterion
+  // PATCH /api/projects/:id/gates/:gate/criteria/:key — blocked (algorithmic auditor: met is server-derived only)
   app.patch("/projects/:id/gates/:gate/criteria/:key", async (request: FastifyRequest, reply: FastifyReply) => {
     if (!request.auth) return reply.status(401).send({ error: "Unauthorized" });
-    const { id, gate: gateParam, key } = request.params as { id: string; gate: string; key: string };
-    const body = request.body as { met: boolean };
-
-    const project = await verifyProject(id, request.auth.workspaceId);
-    if (!project) return reply.status(404).send({ error: "Project not found" });
-
-    const gateRecord = await db.query.gates.findFirst({
-      where: and(eq(gates.projectId, id), eq(gates.gate, gateParam as typeof gates.gate.enumValues[number])),
+    return reply.status(403).send({
+      error: "Forbidden",
+      message:
+        "Gate criterion satisfaction is computed from project evidence (facts and intake). Manual check-off is not permitted.",
     });
-    if (!gateRecord) return reply.status(404).send({ error: "Gate not found" });
-
-    const criteria = gateRecord.criteria as { key: string; label: string; met: boolean; autoCheck: boolean }[];
-    const updated = criteria.map((c) =>
-      c.key === key ? { ...c, met: body.met } : c
-    );
-
-    const [result] = await db
-      .update(gates)
-      .set({ criteria: updated })
-      .where(eq(gates.id, gateRecord.id))
-      .returning();
-
-    return { data: result };
   });
 
-  // POST /api/projects/:id/gates/:gate/reverify — upload additional evidence and re-check gate criteria
-  app.post("/projects/:id/gates/:gate/reverify", async (request: FastifyRequest, reply: FastifyReply) => {
+  app.put("/projects/:id/gates/:gate/criteria/:key", async (request: FastifyRequest, reply: FastifyReply) => {
     if (!request.auth) return reply.status(401).send({ error: "Unauthorized" });
-    const { id, gate: gateParam } = request.params as { id: string; gate: string };
+    return reply.status(403).send({
+      error: "Forbidden",
+      message:
+        "Gate criterion satisfaction is computed from project evidence (facts and intake). Manual check-off is not permitted.",
+    });
+  });
+
+  // POST /api/projects/:id/gates/:gateRef/reverify
+  // - If `gateRef` is a gate row UUID: re-run AI on all stored project documents and refresh gate criteria (no client criteria payload).
+  // - Else `gateRef` is gate letter A–F: multipart upload of additional evidence (legacy).
+  app.post("/projects/:id/gates/:gateRef/reverify", async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!request.auth) return reply.status(401).send({ error: "Unauthorized" });
+    const { id, gateRef } = request.params as { id: string; gateRef: string };
 
     const project = await verifyProject(id, request.auth.workspaceId);
     if (!project) return reply.status(404).send({ error: "Project not found" });
 
+    if (isGateRowUuid(gateRef)) {
+      const gateRecord = await db.query.gates.findFirst({
+        where: and(eq(gates.id, gateRef), eq(gates.projectId, id)),
+      });
+      if (!gateRecord) return reply.status(404).send({ error: "Gate not found" });
+
+      try {
+        const rescan = await rescanAllStoredProjectDocuments(id);
+
+        const refreshedGate = await db.query.gates.findFirst({
+          where: eq(gates.id, gateRef),
+        });
+
+        const criteria = (refreshedGate?.criteria || []) as GateCriterionStateSnapshot[];
+        const total = criteria.length;
+        const metCount = criteria.filter((c) => c.met).length;
+
+        let rescanNotice: string | undefined;
+        if (rescan.documentsProcessed === 0 && rescan.documentsSkipped > 0) {
+          rescanNotice =
+            "No project documents had a stored file to re-analyze. Configure S3 (IONOS Object Storage) and upload documents again, or add new evidence with files on this gate.";
+        }
+
+        return {
+          data: {
+            gate: refreshedGate
+              ? {
+                  ...refreshedGate,
+                  readinessPercent: total > 0 ? Math.round((metCount / total) * 100) : 0,
+                  criteriaCount: total,
+                  criteriaMet: metCount,
+                }
+              : null,
+            rescan,
+            rescanNotice,
+          },
+        };
+      } catch (err) {
+        request.log.error({ err }, "rescanAllStoredProjectDocuments failed");
+        return reply.status(500).send({
+          error: "Document rescan failed",
+          message: err instanceof Error ? err.message : "Unknown error",
+        });
+      }
+    }
+
+    const gateParam = gateRef;
     const gateRecord = await db.query.gates.findFirst({
       where: and(eq(gates.projectId, id), eq(gates.gate, gateParam as typeof gates.gate.enumValues[number])),
     });
     if (!gateRecord) return reply.status(404).send({ error: "Gate not found" });
+
+    // Snapshot the unmet criteria BEFORE processing so we can ask the AI to
+    // cross-reference uploaded evidence against them.
+    const unmetCriteriaSnapshot = ((gateRecord.criteria || []) as GateCriterionStateSnapshot[])
+      .filter((c) => !c.met)
+      .map((c) => ({ key: c.key, label: c.label }));
 
     const parts = request.parts();
     const fileBuffers: { name: string; mime: string; buffer: Buffer }[] = [];
@@ -399,79 +407,102 @@ export async function gateRoutes(app: FastifyInstance) {
       });
     }
 
+    const insertedFactKeys = new Set<string>();
+
     for (const file of fileBuffers) {
+      const resolvedMime = resolveDeclaredMimeType(file.name, file.mime);
+
       const [documentRecord] = await db
         .insert(documents)
         .values({
           projectId: id,
           name: file.name,
-          type: file.mime,
+          type: resolvedMime,
           versions: [],
           sourceChannel: "gate_reverify_upload",
           confidence: 100,
         })
         .returning();
 
+      const persisted = await tryPersistDocumentFileToStorage({
+        workspaceId: request.auth.workspaceId,
+        projectId: id,
+        documentId: documentRecord.id,
+        fileName: file.name,
+        buffer: file.buffer,
+        contentType: resolvedMime,
+        uploadedBy: request.auth.userId ?? "system",
+      });
+
+      if (persisted) {
+        await db
+          .update(documents)
+          .set({ versions: persisted, currentVersion: 1 })
+          .where(eq(documents.id, documentRecord.id));
+      }
+
       const processed = await processFile({
         project_id: id,
         document_id: documentRecord.id,
         file_name: file.name,
-        mime_type: file.mime,
+        mime_type: resolvedMime,
         buffer: file.buffer,
       });
 
-      for (const scheduleItem of processed.structured.schedule) {
-        await db.insert(projectFacts).values({
-          projectId: id,
-          fieldName: "schedule",
-          value: JSON.stringify({
-            ...scheduleItem,
-            truth_state: "inferred",
-            source_document_id: documentRecord.id,
-          }),
-          dataState: "DERIVED",
-          sourceRef: `document_id:${documentRecord.id} | ${scheduleItem.source_reference || processed.source_reference}`,
-        });
-      }
+      await insertFactsFromProcessFileOutput(id, documentRecord.id, processed, insertedFactKeys);
 
-      for (const costItem of processed.structured.cost_items) {
-        await db.insert(projectFacts).values({
-          projectId: id,
-          fieldName: "cost_item",
-          value: JSON.stringify({
-            ...costItem,
-            truth_state: "inferred",
-            source_document_id: documentRecord.id,
-          }),
-          dataState: "DERIVED",
-          sourceRef: `document_id:${documentRecord.id} | ${costItem.source_reference || processed.source_reference}`,
-        });
-      }
-
-      for (const mapping of processed.structured.standards_mapping) {
-        await db.insert(projectFacts).values({
-          projectId: id,
-          fieldName: "standards_mapping",
-          value: JSON.stringify({
-            ...mapping,
-            truth_state: "inferred",
-            source_document_id: documentRecord.id,
-          }),
-          dataState: "DERIVED",
-          sourceRef: `document_id:${documentRecord.id} | ${mapping.source_reference || processed.source_reference}`,
-        });
+      // Cross-reference the document's parsed text with the gate's unmet criteria.
+      // Each AI-confirmed match becomes a `gate_evidence_attestation` fact, which
+      // gate-evaluator treats as direct satisfaction proof for that criterion.
+      if (unmetCriteriaSnapshot.length > 0 && processed.text.trim().length > 0) {
+        try {
+          const attestations = await attestCriteriaFromEvidenceText(
+            processed.text,
+            unmetCriteriaSnapshot
+          );
+          for (const att of attestations) {
+            if (!att.satisfied) continue;
+            await db.insert(projectFacts).values({
+              projectId: id,
+              fieldName: "gate_evidence_attestation",
+              value: JSON.stringify({
+                criterion_key: att.key,
+                gate: gateParam,
+                supporting_quote: att.supportingQuote,
+                reason: att.reason,
+                source_document_id: documentRecord.id,
+                truth_state: "inferred",
+              }),
+              dataState: "DERIVED",
+              sourceRef: `document_id:${documentRecord.id} | gate_evidence_attestation:${att.key}`,
+            });
+          }
+        } catch (attErr) {
+          request.log.warn({ err: attErr }, "Gate criterion attestation failed; continuing.");
+        }
       }
     }
 
-    await refreshGateCriteriaFromFacts(id);
+    await refreshAndAutoCompleteGates(id);
 
     const refreshedGate = await db.query.gates.findFirst({
       where: and(eq(gates.projectId, id), eq(gates.gate, gateParam as typeof gates.gate.enumValues[number])),
     });
 
+    const criteria = (refreshedGate?.criteria || []) as GateCriterionStateSnapshot[];
+    const total = criteria.length;
+    const metCount = criteria.filter((c) => c.met).length;
+
     return {
       data: {
-        gate: refreshedGate,
+        gate: refreshedGate
+          ? {
+              ...refreshedGate,
+              readinessPercent: total > 0 ? Math.round((metCount / total) * 100) : 0,
+              criteriaCount: total,
+              criteriaMet: metCount,
+            }
+          : null,
         filesProcessed: fileBuffers.length,
       },
     };

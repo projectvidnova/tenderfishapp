@@ -27,7 +27,7 @@ export async function authRoutes(app: FastifyInstance) {
           ...(request.body ? { body: JSON.stringify(request.body) } : {}),
         });
 
-        const response = await auth.handler(req);
+        const response = await auth.handler(req as unknown as Request);
 
         reply.status(response.status);
 

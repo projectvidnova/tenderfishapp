@@ -67,6 +67,10 @@ export const projectLifecycleStateEnum = pgEnum("project_lifecycle_state", [
   "detail_ready",
   "tender_ready",
   "released_for_tender",
+  "awarded",    // Bidder awarded; contracts being signed
+  "execution",  // Contracts signed; site work running
+  "handover",   // Abnahme scheduled or in progress
+  "closed",     // All Abnahmen complete; warranty period started
 ]);
 
 export const procurementModelEnum = pgEnum("procurement_model", [
@@ -163,6 +167,16 @@ export const documentStatusEnum = pgEnum("document_status", [
   "archived",
 ]);
 
+export const bauvorlvDocumentCategoryEnum = pgEnum("bauvorlv_document_category", [
+  "cadastral_map",
+  "site_plan",
+  "construction_drawings",
+  "structural_proofs",
+  "fire_protection_plan",
+  "noise_heat_insulation",
+  "other",
+]);
+
 export const delayCauseEnum = pgEnum("delay_cause", [
   "client_delay",
   "missing_approval",
@@ -202,6 +216,12 @@ export const reviewOutcomeEnum = pgEnum("review_outcome", [
   "approved_with_comments",
   "resubmission_required",
   "rejected",
+]);
+
+export const constructionDiaryStatusEnum = pgEnum("construction_diary_status", [
+  "draft",
+  "signed_off",
+  "disputed",
 ]);
 
 export const inviteStatusEnum = pgEnum("invite_status", [
@@ -386,6 +406,22 @@ export const milestones = pgTable("milestones", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * One row in `gates.criteria` (JSONB array): a **read-only snapshot** of automated compliance state.
+ * The `met` flag is derived exclusively by the server-side gate evaluator from `project_facts` and
+ * document intake — never set or edited by clients. (Formal gate bypass uses `status = overridden`
+ * and override columns, not manual criterion toggles.)
+ */
+export type GateCriterionStateSnapshot = {
+  key: string;
+  label: string;
+  met: boolean;
+  autoCheck: boolean;
+};
+
+/**
+ * Compliance gates A–F. The `criteria` column stores evaluator output only (see {@link GateCriterionStateSnapshot}).
+ */
 export const gates = pgTable("gates", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id")
@@ -394,7 +430,7 @@ export const gates = pgTable("gates", {
   gate: gateLetterEnum("gate").notNull(),
   status: gateStatusEnum("status").notNull().default("locked"),
   criteria: jsonb("criteria")
-    .$type<{ key: string; label: string; met: boolean; autoCheck: boolean }[]>()
+    .$type<GateCriterionStateSnapshot[]>()
     .notNull()
     .default([]),
   overrideActive: boolean("override_active").notNull().default(false),
@@ -478,6 +514,10 @@ export const documents = pgTable("documents", {
   createdBy: uuid("created_by").references(() => users.id),
   relatedPhaseId: uuid("related_phase_id").references(() => phases.id),
   relatedPackageId: uuid("related_package_id").references(() => tenderPackages.id),
+  bauvorlvCategory: bauvorlvDocumentCategoryEnum("bauvorlv_category"),
+  documentDate: date("document_date"),
+  scaleMetric: varchar("scale_metric", { length: 50 }),
+  hasCertifiedSignature: boolean("has_certified_signature"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("documents_project_id_idx").on(t.projectId), index("documents_status_idx").on(t.status)]);
 
@@ -715,6 +755,10 @@ export const bidders = pgTable("bidders", {
   status: bidderStatusEnum("status").notNull().default("invited"),
   offerAmount: integer("offer_amount"), // in cents
   offerNotes: text("offer_notes"),
+  craftsRegisterValid: boolean("crafts_register_valid"),
+  a1CertificateValid: boolean("a1_certificate_valid"),
+  pqVereinStatus: boolean("pq_verein_status"),
+  complianceExpiryDate: date("compliance_expiry_date"),
   returnedAt: timestamp("returned_at", { withTimezone: true }),
   awardedAt: timestamp("awarded_at", { withTimezone: true }),
   awardedBy: uuid("awarded_by").references(() => users.id),
@@ -811,6 +855,9 @@ export const costLineItems = pgTable("cost_line_items", {
   unitPrice: integer("unit_price"), // cents per unit
   source: varchar("source", { length: 255 }), // e.g. "tender_return", "estimate", "actual_invoice"
   dataState: dataStateEnum("data_state").notNull().default("DERIVED"),
+  din276Confidence: integer("din276_confidence"), // 0..100, nullable
+  din276Source: varchar("din276_source", { length: 16 }), // 'ai' | 'manual' | 'rule'
+  din276Rationale: text("din276_rationale"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("cost_line_items_snapshot_id_idx").on(t.snapshotId), index("cost_line_items_cost_group_idx").on(t.costGroupCode)]);
 
@@ -1111,10 +1158,12 @@ export const leistungsverzeichnisse = pgTable("leistungsverzeichnisse", {
   positionCount: integer("position_count").notNull().default(0),
   gaebFileRef: text("gaeb_file_ref"), // GCS path to original GAEB file
   gaebVersion: varchar("gaeb_version", { length: 20 }), // e.g. "GAEB XML 3.3"
+  parentLvId: uuid("parent_lv_id"), // for X84 corrected bids — points at the LV being superseded
+  version: integer("version").notNull().default(1),
   notes: text("notes"),
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [index("lv_project_id_idx").on(t.projectId)]);
+}, (t) => [index("lv_project_id_idx").on(t.projectId), index("lv_parent_id_idx").on(t.parentLvId)]);
 
 /**
  * LV Positionen (BoQ line items) — individual positions within a Leistungsverzeichnis.
@@ -1135,6 +1184,9 @@ export const lvPositionen = pgTable("lv_positionen", {
   einheitspreis: integer("einheitspreis").notNull().default(0), // unit price in cents
   gesamtpreis: integer("gesamtpreis").notNull().default(0), // total price = menge × einheitspreis (in cents)
   costGroupCode: varchar("cost_group_code", { length: 10 }), // DIN 276 mapping at position level
+  din276Confidence: integer("din276_confidence"), // 0..100, nullable
+  din276Source: varchar("din276_source", { length: 16 }), // 'ai' | 'manual' | 'rule'
+  din276Rationale: text("din276_rationale"),
   linkedPositionId: uuid("linked_position_id"), // for alternative/optional links
   notes: text("notes"),
 }, (t) => [index("lv_positionen_lv_id_idx").on(t.lvId)]);
@@ -1209,6 +1261,37 @@ export const regulatorySubmissions = pgTable("regulatory_submissions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("regulatory_submissions_project_id_idx").on(t.projectId), index("regulatory_submissions_area_idx").on(t.area), index("regulatory_submissions_status_idx").on(t.status)]);
 
+export const constructionDiaryEntries = pgTable("construction_diary_entries", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  entryDate: date("entry_date").notNull(),
+  weatherData: jsonb("weather_data").$type<{
+    temperature?: string;
+    precipitation?: string;
+    wind?: string;
+  }>(),
+  personnelOnSite: jsonb("personnel_on_site").$type<{
+    participantId: string;
+    headcount: number;
+  }[]>().default([]),
+  defectsLogged: jsonb("defects_logged").$type<{
+    description: string;
+    severity: string;
+    coordinates: {
+      x: number;
+      y: number;
+      z?: number;
+    };
+  }[]>().default([]),
+  photoEvidenceRefs: jsonb("photo_evidence_refs").$type<string[]>().default([]),
+  activitiesPerformed: text("activities_performed"),
+  status: constructionDiaryStatusEnum("status").notNull().default("draft"),
+  signedOffBy: uuid("signed_off_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("construction_diary_entries_project_id_idx").on(t.projectId), index("construction_diary_entries_entry_date_idx").on(t.entryDate), index("construction_diary_entries_status_idx").on(t.status)]);
+
 // ═══════════════════════════════════════════════════════════════
 // STRUCTURED PROJECT DESCRIPTION (SPD)
 // ═══════════════════════════════════════════════════════════════
@@ -1282,6 +1365,12 @@ export const tenderReleases = pgTable("tender_releases", {
   recalledBy: uuid("recalled_by").references(() => users.id),
   recalledAt: timestamp("recalled_at", { withTimezone: true }),
   recallReason: text("recall_reason"),
+  gaebMathVerified: boolean("gaeb_math_verified").notNull().default(false),
+  gaebMathErrors: jsonb("gaeb_math_errors").$type<Array<{ ordnungszahl: string; expected: number; actual: number; delta: number; kind: "line" | "group" | "total"; lvId?: string }>>().notNull().default([]),
+  gaebMathCheckedAt: timestamp("gaeb_math_checked_at", { withTimezone: true }),
+  mathOverrideReason: text("math_override_reason"),
+  mathOverrideBy: uuid("math_override_by").references(() => users.id),
+  mathOverrideAt: timestamp("math_override_at", { withTimezone: true }),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("tender_releases_project_id_idx").on(t.projectId)]);
@@ -1316,6 +1405,10 @@ export const participants = pgTable("participants", {
     signals: string[];
     confidence: number;
   }>(),
+  craftsRegisterValid: boolean("crafts_register_valid"),
+  a1CertificateValid: boolean("a1_certificate_valid"),
+  pqVereinStatus: boolean("pq_verein_status"),
+  complianceExpiryDate: date("compliance_expiry_date"),
   userId: uuid("user_id").references(() => users.id),
   confirmedBy: uuid("confirmed_by").references(() => users.id),
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }),

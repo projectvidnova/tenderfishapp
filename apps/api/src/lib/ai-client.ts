@@ -21,12 +21,16 @@ export interface AIChatOptions {
   model?: string;
 }
 
+export type VisionImageMediaType = "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+
 export interface AIVisionOptions {
   imageBuffer: Buffer;
-  mediaType: "image/png" | "image/jpeg" | "image/gif";
+  mediaType: VisionImageMediaType;
   prompt: string;
   maxTokens: number;
   model?: string;
+  /** Optional system prompt (supported for Anthropic and OpenAI-compatible vision). */
+  system?: string;
 }
 
 /* ─── Provider clients (lazy singletons) ────────────────────── */
@@ -101,7 +105,9 @@ async function ionosChat(model: string, options: AIChatOptions): Promise<string>
 
 export async function aiVision(options: AIVisionOptions): Promise<string> {
   const env = getEnv();
-  const model = options.model || getActiveModel();
+  const model =
+    options.model ||
+    (env.AI_PROVIDER === "ionos" ? env.IONOS_VISION_MODEL : getActiveModel());
 
   if (env.AI_PROVIDER === "anthropic") {
     return anthropicVision(model, options);
@@ -116,6 +122,7 @@ async function anthropicVision(model: string, options: AIVisionOptions): Promise
   const response = await client.messages.create({
     model,
     max_tokens: options.maxTokens,
+    ...(options.system ? { system: options.system } : {}),
     messages: [
       {
         role: "user",
@@ -135,19 +142,23 @@ async function anthropicVision(model: string, options: AIVisionOptions): Promise
 async function ionosVision(model: string, options: AIVisionOptions): Promise<string> {
   const client = getIonosClient();
   const base64 = options.imageBuffer.toString("base64");
+  const dataUri = `data:${options.mediaType};base64,${base64}`;
 
   const response = await client.chat.completions.create({
     model,
     max_tokens: options.maxTokens,
     messages: [
+      ...(options.system
+        ? [{ role: "system" as const, content: options.system }]
+        : []),
       {
         role: "user",
         content: [
+          { type: "text", text: options.prompt },
           {
             type: "image_url",
-            image_url: { url: `data:${options.mediaType};base64,${base64}` },
+            image_url: { url: dataUri, detail: "auto" },
           },
-          { type: "text", text: options.prompt },
         ],
       },
     ],

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { CookieConsent } from "@/components/CookieConsent";
 
 export const metadata: Metadata = {
   title: "Tenderfish",
@@ -21,6 +22,7 @@ export default function RootLayout({
     <html lang="de">
       <body>
         <ErrorBoundary>{children}</ErrorBoundary>
+        <CookieConsent />
       </body>
     </html>
   );
