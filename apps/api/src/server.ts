@@ -29,6 +29,7 @@ import { gaebRoutes } from "./routes/gaeb";
 import { accountRoutes } from "./routes/account";
 import { contractRoutes } from "./routes/contracts";
 import { siteRoutes } from "./routes/site";
+import { hoaiRoutes } from "./routes/hoai";
 
 // Validate environment variables at startup (fail fast)
 const env = validateEnv();
@@ -145,6 +146,7 @@ async function buildApp() {
   await app.register(accountRoutes, { prefix: "/api" });
   await app.register(contractRoutes, { prefix: "/api" });
   await app.register(siteRoutes, { prefix: "/api" });
+  await app.register(hoaiRoutes, { prefix: "/api" });
 
   return app;
 }

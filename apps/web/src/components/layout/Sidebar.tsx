@@ -88,6 +88,7 @@ const projectNavSections: ProjectNavSection[] = [
     icon: Euro,
     items: [
       { href: "costs", label: "Cost Estimate", icon: Euro },
+      { href: "hoai", label: "HOAI Honorar", icon: Scale },
       { href: "lv", label: "Leistungsverzeichnis (GAEB)", icon: FileText },
       { href: "procurement", label: "Procurement", icon: Package },
       { href: "tender-release", label: "Tender Release", icon: Rocket },
