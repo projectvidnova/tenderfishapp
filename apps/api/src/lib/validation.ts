@@ -478,6 +478,39 @@ export const updateDiaryEntrySchema = z.object({
   activitiesPerformed: z.string().optional(),
 });
 
+// ─── HOAI fee calculation ─────────────────────────────────────
+
+const hoaiFeeZoneEnum = z.enum(["I", "II", "III", "IV", "V"]);
+const hoaiServiceTypeEnum = z.enum([
+  "gebaeudeplanung",
+  "freianlagenplanung",
+  "tragwerksplanung",
+  "technische_ausruestung",
+]);
+
+const hoaiModifierSchema = z.object({
+  key: nonEmptyTrimmed,
+  label: nonEmptyTrimmed,
+  factor: z.number().min(-1).max(2),
+});
+
+export const createHoaiCalculationSchema = z.object({
+  serviceType: hoaiServiceTypeEnum,
+  feeZone: hoaiFeeZoneEnum,
+  // Cents (integer). Allow up to 100 billion EUR-cents which is well above HOAI table ceiling.
+  anrechenbareKosten: z.number().int().min(0).max(10_000_000_000_00),
+  feePositionInZone: z.number().int().min(0).max(100).default(50),
+  commissionedPhases: z
+    .array(z.number().int().min(1).max(9))
+    .min(1)
+    .max(9)
+    .default([1, 2, 3, 4, 5, 6, 7, 8, 9]),
+  modifiers: z.array(hoaiModifierSchema).max(10).default([]),
+  notes: z.string().trim().max(2000).optional(),
+});
+
+export const updateHoaiCalculationSchema = createHoaiCalculationSchema.partial();
+
 // ─── Helper ───────────────────────────────────────────────────
 
 /**

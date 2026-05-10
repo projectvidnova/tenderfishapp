@@ -1,4 +1,4 @@
-import { db, gates, phases, projectFacts, tenderReleases } from "@tenderfish/db";
+import { db, gates, hoaiFeeCalculations, phases, projectFacts, tenderReleases } from "@tenderfish/db";
 import { eq, asc, desc, and, ne } from "drizzle-orm";
 import { verifyProjectLvMath } from "./gaeb-math-verifier";
 
@@ -9,6 +9,8 @@ interface FactEntry {
 
 interface ExtraSignals {
   gaebMathClean: boolean;
+  /** True if at least one HOAI fee calculation row exists for the project. */
+  hoaiFeeZoneSet: boolean;
   /** Set of criterion keys directly attested by uploaded evidence (Add Evidence & Re-verify). */
   attestedCriterionKeys: Set<string>;
 }
@@ -107,13 +109,19 @@ function evaluateCriterion(criterionKey: string, factIndex: Map<string, FactEntr
     return extra.gaebMathClean;
   }
 
+  if (criterionKey === "hoai_fee_zone") {
+    // Met if a HOAI fee calculation row exists for this project, OR if the AI
+    // extracted a `hoai_fee_zone` / `standards_mapping` fact (back-compat).
+    if (extra.hoaiFeeZoneSet) return true;
+  }
+
   const fields = map[criterionKey];
   if (!fields) return false;
   return hasFactValue(factIndex, fields);
 }
 
 export async function refreshGateCriteriaFromFacts(projectId: string): Promise<GateReadiness[]> {
-  const [facts, gateRows, latestRelease] = await Promise.all([
+  const [facts, gateRows, latestRelease, hoaiRows] = await Promise.all([
     db.query.projectFacts.findMany({
       where: eq(projectFacts.projectId, projectId),
     }),
@@ -125,7 +133,14 @@ export async function refreshGateCriteriaFromFacts(projectId: string): Promise<G
       where: eq(tenderReleases.projectId, projectId),
       orderBy: desc(tenderReleases.createdAt),
     }),
+    db
+      .select({ id: hoaiFeeCalculations.id })
+      .from(hoaiFeeCalculations)
+      .where(eq(hoaiFeeCalculations.projectId, projectId))
+      .limit(1),
   ]);
+
+  const hoaiFeeZoneSet = hoaiRows.length > 0;
 
   // Compute math gate live (cheap when LVs are small). If a release row already
   // has a verified result, prefer that (avoids redundant compute).
@@ -159,7 +174,7 @@ export async function refreshGateCriteriaFromFacts(projectId: string): Promise<G
     }
   }
 
-  const extra: ExtraSignals = { gaebMathClean, attestedCriterionKeys };
+  const extra: ExtraSignals = { gaebMathClean, hoaiFeeZoneSet, attestedCriterionKeys };
 
   const gateOrder = ["A", "B", "C", "D", "E", "F"];
   let previousGatePassed = true;
