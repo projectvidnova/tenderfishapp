@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { Modal } from "@/components/ui/Modal";
+import { formatDate } from "@/lib/formatters";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -310,7 +311,7 @@ export default function ProcurementPage() {
                                     return (
                                       <tr key={b.id} className="border-b border-border last:border-0">
                                         <td className="py-2 font-medium">{b.company}</td>
-                                        <td className="py-2 text-xs text-text-quaternary font-mono">{new Date(b.invitedAt).toLocaleDateString()}</td>
+                                        <td className="py-2 text-xs text-text-quaternary font-mono">{formatDate(b.invitedAt)}</td>
                                         <td className="py-2 text-xs text-text-quaternary font-mono">{b.returnDue || "—"}</td>
                                         <td className="py-2">
                                           <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-sm ${st.cls}`}>

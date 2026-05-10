@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GAEB xmlns="http://www.gaeb.de/GAEB_DA_XML/200407" VersNo="3.2">
+  <GAEBInfo>
+    <VersNo>3.2</VersNo>
+    <Date>2025-01-15</Date>
+    <ProgSystem>TestFixture</ProgSystem>
+  </GAEBInfo>
+  <PrjInfo>
+    <NamePrj>Test Bauvorhaben</NamePrj>
+    <LblPrj>Rohbau Schule</LblPrj>
+  </PrjInfo>
+  <Award>
+    <AwardInfo>
+      <PhaseInfo PhaseType="83"/>
+      <Cur>EUR</Cur>
+      <OZSystem>
+        <OZMaskComplete>0123456789012</OZMaskComplete>
+      </OZSystem>
+    </AwardInfo>
+    <BoQ>
+      <BoQInfo>
+        <Name>LV Rohbau</Name>
+        <LblBoQ>LV-01 Rohbau</LblBoQ>
+      </BoQInfo>
+      <BoQBody>
+        <BoQCtgy RNoPart="01">
+          <LblTitle>Erdarbeiten</LblTitle>
+          <Itemlist>
+            <Item RNoPart="01.001">
+              <ShortText>Aushub Baugrube</ShortText>
+              <Qty>120.500</Qty>
+              <QU>m3</QU>
+              <UP>15.50</UP>
+              <ItPrc>1867.75</ItPrc>
+            </Item>
+            <Item RNoPart="01.002">
+              <ShortText>Bodenaushub Erdklasse 3</ShortText>
+              <Qty>85.000</Qty>
+              <QU>m3</QU>
+              <UP>22.00</UP>
+              <ItPrc>1870.00</ItPrc>
+            </Item>
+          </Itemlist>
+        </BoQCtgy>
+        <BoQCtgy RNoPart="02">
+          <LblTitle>Stahlbetonarbeiten</LblTitle>
+          <Itemlist>
+            <Item RNoPart="02.001">
+              <ShortText>Bodenplatte Stahlbeton C25/30</ShortText>
+              <Qty>45.250</Qty>
+              <QU>m3</QU>
+              <UP>320.00</UP>
+              <ItPrc>14480.00</ItPrc>
+            </Item>
+            <Item RNoPart="02.002">
+              <ShortText>Tragende Außenwand Stahlbeton</ShortText>
+              <Qty>18.750</Qty>
+              <QU>m3</QU>
+              <UP>410.00</UP>
+              <ItPrc>7687.50</ItPrc>
+            </Item>
+          </Itemlist>
+        </BoQCtgy>
+      </BoQBody>
+      <Total>
+        <NetTotal>25905.25</NetTotal>
+        <GrossTotal>30827.25</GrossTotal>
+      </Total>
+    </BoQ>
+  </Award>
+</GAEB>

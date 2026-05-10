@@ -13,6 +13,51 @@ import {
 import { eq, and, lte, gte, sql, inArray } from "drizzle-orm";
 
 export async function dashboardRoutes(app: FastifyInstance) {
+  const PLACEHOLDER_PROJECT_NAMES = new Set([
+    "New Project (Processing)",
+    "Untitled Project",
+    "New Project",
+  ]);
+
+  function parseFactJson(raw: string | null): Record<string, unknown> | null {
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function deriveDashboardProjectName(
+    currentName: string,
+    facts: { fieldName: string; value: string | null }[]
+  ): string {
+    if (!PLACEHOLDER_PROJECT_NAMES.has(currentName.trim())) return currentName;
+
+    const summaryFact = facts.find((f) => f.fieldName === "project_summary");
+    if (summaryFact) {
+      const parsed = parseFactJson(summaryFact.value);
+      const summary =
+        typeof parsed?.summary === "string"
+          ? parsed.summary.trim()
+          : summaryFact.value?.trim() || "";
+      if (summary) return summary.slice(0, 80);
+    }
+
+    const clientFact = facts.find((f) => f.fieldName === "overview_client_name");
+    if (clientFact) {
+      const parsed = parseFactJson(clientFact.value);
+      const client =
+        typeof parsed?.client_name === "string"
+          ? parsed.client_name.trim()
+          : clientFact.value?.trim() || "";
+      if (client) return `${client} Project`;
+    }
+
+    return currentName;
+  }
+
   // GET /api/dashboard — aggregated dashboard data
   app.get("/dashboard", async (request: FastifyRequest, reply: FastifyReply) => {
     if (!request.auth) {
@@ -56,11 +101,19 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const allPhases = await db.query.phases.findMany({
       where: inArray(phases.projectId, projectIds),
     });
+    const namingFacts = await db.query.projectFacts.findMany({
+      where: and(
+        inArray(projectFacts.projectId, projectIds),
+        inArray(projectFacts.fieldName, ["project_summary", "overview_client_name"])
+      ),
+      orderBy: (pf, { asc }) => [asc(pf.createdAt)],
+    });
 
     // Build enriched project cards
     const projectCards = projectList.map((p) => {
       const pGates = allGates.filter((g) => g.projectId === p.id);
       const pPhases = allPhases.filter((ph) => ph.projectId === p.id);
+      const pNameFacts = namingFacts.filter((pf) => pf.projectId === p.id);
 
       // Current LPH = highest active phase
       const activePhases = pPhases
@@ -78,7 +131,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
 
       return {
         id: p.id,
-        name: p.name,
+        name: deriveDashboardProjectName(p.name, pNameFacts),
         type: p.type,
         status: p.status,
         healthScore: p.healthScore,
@@ -90,6 +143,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
           : { gate: "F", status: "complete" },
       };
     });
+    const projectNameById = new Map(projectCards.map((p) => [p.id, p.name]));
 
     // 2. Action required items
     const actionItems: {
@@ -110,10 +164,9 @@ export async function dashboardRoutes(app: FastifyInstance) {
       ),
     });
     for (const a of overdueApprovals) {
-      const proj = projectList.find((p) => p.id === a.projectId);
       actionItems.push({
         projectId: a.projectId,
-        projectName: proj?.name || "",
+        projectName: projectNameById.get(a.projectId) || "",
         item: a.name,
         type: "Overdue Approval",
         due: a.dueDate,
@@ -127,10 +180,9 @@ export async function dashboardRoutes(app: FastifyInstance) {
       const criteria = g.criteria as { key: string; label: string; met: boolean }[];
       const unmet = criteria.filter((c) => !c.met);
       if (unmet.length > 0) {
-        const proj = projectList.find((p) => p.id === g.projectId);
         actionItems.push({
           projectId: g.projectId,
-          projectName: proj?.name || "",
+          projectName: projectNameById.get(g.projectId) || "",
           item: `Gate ${g.gate}: ${unmet[0].label}`,
           type: "Blocked Gate",
           due: null,
@@ -155,10 +207,9 @@ export async function dashboardRoutes(app: FastifyInstance) {
       missingByProject.get(f.projectId)!.push(f);
     }
     for (const [pid, facts] of missingByProject) {
-      const proj = projectList.find((p) => p.id === pid);
       actionItems.push({
         projectId: pid,
-        projectName: proj?.name || "",
+        projectName: projectNameById.get(pid) || "",
         item: `${facts.length} missing fact${facts.length > 1 ? "s" : ""} (${facts[0].fieldName.replace(/_/g, " ")})`,
         type: "Missing Info",
         due: null,
@@ -186,12 +237,11 @@ export async function dashboardRoutes(app: FastifyInstance) {
     });
 
     const milestones = upcomingTasks.map((t) => {
-      const proj = projectList.find((p) => p.id === t.projectId);
       const phase = allPhases.find((ph) => ph.id === t.phaseId);
       return {
         date: t.dueDate,
         projectId: t.projectId,
-        projectName: proj?.name || "",
+        projectName: projectNameById.get(t.projectId) || "",
         milestone: t.name,
         phase: phase ? `LPH ${phase.lph}` : "",
         status: t.status,
@@ -235,6 +285,115 @@ export async function dashboardRoutes(app: FastifyInstance) {
       },
     };
   });
+
+  // GET /api/projects/:id/compliance-dashboard — project-scoped compliance aggregation
+  app.get(
+    "/projects/:id/compliance-dashboard",
+    async (
+      request: FastifyRequest<{ Params: { id: string } }>,
+      reply: FastifyReply
+    ) => {
+      try {
+        if (!request.auth) {
+          return reply.status(401).send({ error: "Unauthorized" });
+        }
+
+        const { id } = request.params;
+        const wsId = request.auth.workspaceId;
+        if (!wsId) {
+          return reply.status(403).send({ error: "No workspace", code: "NO_WORKSPACE" });
+        }
+
+        const project = await db.query.projects.findFirst({
+          where: and(eq(projects.id, id), eq(projects.workspaceId, wsId)),
+        });
+
+        if (!project) {
+          return reply.status(404).send({ error: "Project not found" });
+        }
+
+        const [projectGates, projectPhases] = await Promise.all([
+          db.query.gates.findMany({
+            where: eq(gates.projectId, id),
+          }),
+          db.query.phases.findMany({
+            where: eq(phases.projectId, id),
+            orderBy: (p, { asc }) => [asc(p.lph)],
+          }),
+        ]);
+
+        type GateCriteria = { key: string; label: string; met: boolean; autoCheck: boolean };
+
+        const gateOrder = ["A", "B", "C", "D", "E", "F"] as const;
+        const gateMap: Partial<Record<(typeof gateOrder)[number], typeof projectGates[number]>> =
+          {};
+        for (const g of projectGates) {
+          // gates.gate is an enum; we keep gate-letter ordering deterministic for the UI.
+          gateMap[g.gate as (typeof gateOrder)[number]] = g;
+        }
+
+        let totalCriteriaCount = 0;
+        let metCriteriaCount = 0;
+
+        const gatesOut = gateOrder
+          .map((letter) => {
+            const g = gateMap[letter];
+            if (!g) return null;
+
+            const criteriaRaw = g.criteria as unknown;
+            const criteriaArr = Array.isArray(criteriaRaw)
+              ? (criteriaRaw as GateCriteria[])
+              : [];
+
+            totalCriteriaCount += criteriaArr.length;
+            metCriteriaCount += criteriaArr.filter((c) => c.met).length;
+
+            return {
+              gate: g.gate,
+              status: g.status,
+              criteria: criteriaArr,
+            };
+          })
+          .filter((x): x is NonNullable<typeof x> => Boolean(x));
+
+        const complianceCompletionPercentage =
+          totalCriteriaCount > 0 ? Math.round((metCriteriaCount / totalCriteriaCount) * 100) : 0;
+
+        const phasesOut = projectPhases
+          .sort((a, b) => a.lph - b.lph)
+          .map((ph) => ({ lph: ph.lph, status: ph.status, objective: ph.objective }));
+
+        return reply.status(200).send({
+          data: {
+            project: {
+              id: project.id,
+              name: project.name,
+              type: project.type,
+              status: project.status,
+              healthScore: project.healthScore,
+              procurementModel: project.procurementModel,
+              targetCompletion: project.targetCompletion,
+              objective: project.objective,
+              scopeSummary: project.scopeSummary,
+              location: project.location,
+              clientName: project.clientName,
+              clientRepresentative: project.clientRepresentative,
+            },
+            gates: gatesOut,
+            phases: phasesOut,
+            complianceCompletionPercentage,
+          },
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        return reply.status(500).send({
+          error: "Internal Server Error",
+          code: "INTERNAL_ERROR",
+          message,
+        });
+      }
+    }
+  );
 
   // GET /api/projects/:id/overview — enriched project overview data
   app.get(
@@ -354,6 +513,47 @@ export async function dashboardRoutes(app: FastifyInstance) {
         });
       }
 
+      const parseFactJson = (raw: string | null): Record<string, unknown> | null => {
+        if (!raw) return null;
+        try {
+          const parsed = JSON.parse(raw);
+          return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+        } catch {
+          return null;
+        }
+      };
+      const inferredOverview = {
+        clientName: project.clientName || null,
+        commissionedPhases: [] as number[],
+        buildingPermitStatus: null as string | null,
+      };
+      for (const fact of projectFacts_) {
+        const parsed = parseFactJson(fact.value);
+        if (!parsed) continue;
+        if (fact.fieldName === "overview_client_name" && !inferredOverview.clientName) {
+          inferredOverview.clientName =
+            typeof parsed.client_name === "string" ? parsed.client_name : inferredOverview.clientName;
+        }
+        if (
+          fact.fieldName === "overview_commissioned_phases" &&
+          inferredOverview.commissionedPhases.length === 0 &&
+          Array.isArray(parsed.commissioned_phases)
+        ) {
+          inferredOverview.commissionedPhases = parsed.commissioned_phases
+            .map((v) => Number(v))
+            .filter((v) => Number.isInteger(v) && v >= 1 && v <= 9);
+        }
+        if (
+          fact.fieldName === "overview_building_permit_status" &&
+          !inferredOverview.buildingPermitStatus
+        ) {
+          inferredOverview.buildingPermitStatus =
+            typeof parsed.building_permit_status === "string"
+              ? parsed.building_permit_status
+              : null;
+        }
+      }
+
       return {
         data: {
           project,
@@ -368,6 +568,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
             execution: executionReadiness,
             closeout: closeoutReadiness,
           },
+          inferredOverview,
           actionItems,
         },
       };

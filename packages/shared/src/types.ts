@@ -92,7 +92,11 @@ export type ProjectLifecycleState =
   | "cost_ready"
   | "detail_ready"
   | "tender_ready"
-  | "released_for_tender";
+  | "released_for_tender"
+  | "awarded"
+  | "execution"
+  | "handover"
+  | "closed";
 
 // ─── Data State ────────────────────────────────────────────────
 

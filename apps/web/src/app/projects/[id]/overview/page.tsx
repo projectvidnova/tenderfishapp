@@ -1,561 +1,313 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useParams } from "next/navigation";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { CheckCircle2, Circle, Flag, ShieldAlert } from "lucide-react";
 import AppShell from "@/components/layout/AppShell";
 import { ProjectTopBar } from "@/components/project/ProjectTopBar";
-import {
-  Pencil,
-  Check,
-  X,
-  ArrowRight,
-  ExternalLink,
-} from "lucide-react";
+import { config } from "@/lib/config";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API = config.apiUrl;
 
-interface Project {
-  id: string;
-  name: string;
-  type: string;
-  status: string;
-  healthScore: string;
-  procurementModel: string;
-  targetCompletion: string | null;
-  objective: string | null;
-  scopeSummary: string | null;
-  location: string | null;
-  clientName: string | null;
-  clientRepresentative: string | null;
-}
+type GateCriterion = {
+  key: string;
+  label: string;
+  met: boolean;
+  autoCheck: boolean;
+};
 
-interface Gate {
-  id: string;
+type Gate = {
   gate: string;
   status: string;
-  criteria: { key: string; label: string; met: boolean; autoCheck: boolean }[];
-}
+  criteria: GateCriterion[];
+};
 
-interface Phase {
-  id: string;
+type CompliancePhase = {
   lph: number;
   status: string;
-  objective: string;
-  startDate: string | null;
-  endDate: string | null;
-}
+  objective: string | null;
+};
 
-interface Fact {
-  id: string;
-  fieldName: string;
-  value: string | null;
-  dataState: string;
-}
-
-interface Readiness {
-  planning: number;
-  consultant: number;
-  tender: number;
-  execution: number;
-  closeout: number;
-}
-
-interface ActionItem {
-  category: string;
-  description: string;
-  due: string | null;
-  link: string;
-}
-
-interface OverviewData {
-  project: Project;
-  currentLph: number;
+type ComplianceDashboardData = {
+  project: {
+    id: string;
+    name: string;
+    healthScore: string;
+  };
   gates: Gate[];
-  phases: Phase[];
-  facts: Fact[];
-  readiness: Readiness;
-  actionItems: ActionItem[];
+  phases: CompliancePhase[];
+  complianceCompletionPercentage: number;
+};
+
+type Risk = {
+  id: string;
+  status: string;
+};
+
+type Approval = {
+  id: string;
+  status: string;
+};
+
+type CostSnapshot = {
+  id: string;
+  status: string;
+  totalGross: number | null;
+  snapshotDate: string;
+};
+
+type ImmediateAction = {
+  id: string;
+  gate: string;
+  criterionKey: string;
+  label: string;
+  detail: string;
+};
+
+const gateOrder = ["A", "B", "C", "D", "E", "F"] as const;
+
+function getCurrentLph(phases: CompliancePhase[]): number {
+  const active = phases.find((p) => p.status === "active");
+  if (active) return active.lph;
+  const completed = phases.filter((p) => p.status === "complete").sort((a, b) => b.lph - a.lph)[0];
+  if (completed) return Math.min(9, completed.lph + 1);
+  return 1;
+}
+
+function budgetStatusText(snapshots: CostSnapshot[]): { text: string; tone: string } {
+  if (snapshots.length === 0) return { text: "No baseline", tone: "text-text-quaternary" };
+  const sorted = [...snapshots].sort((a, b) => b.snapshotDate.localeCompare(a.snapshotDate));
+  const latest = sorted[0];
+  if (latest.status === "approved") return { text: "Approved", tone: "text-gate-complete" };
+  if (latest.status === "submitted") return { text: "Under Review", tone: "text-brand-orange" };
+  if (latest.status === "draft") return { text: "Draft", tone: "text-text-tertiary" };
+  return { text: latest.status, tone: "text-text-tertiary" };
 }
 
 export default function ProjectOverviewPage() {
-  const params = useParams();
-  const projectId = params.id as string;
-  const [data, setData] = useState<OverviewData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { id: projectId } = useParams() as { id: string };
+  const router = useRouter();
 
-  const fetchData = useCallback(async () => {
+  const [loading, setLoading] = useState(true);
+  const [compliance, setCompliance] = useState<ComplianceDashboardData | null>(null);
+  const [risks, setRisks] = useState<Risk[]>([]);
+  const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [snapshots, setSnapshots] = useState<CostSnapshot[]>([]);
+
+  const fetchAll = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/projects/${projectId}/overview`, {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const json = await res.json();
-        setData(json.data);
+      const [complianceRes, risksRes, approvalsRes, costsRes] = await Promise.all([
+        fetch(`${API}/api/projects/${projectId}/compliance-dashboard`, { credentials: "include" }),
+        fetch(`${API}/api/projects/${projectId}/risks`, { credentials: "include" }),
+        fetch(`${API}/api/projects/${projectId}/approvals`, { credentials: "include" }),
+        fetch(`${API}/api/projects/${projectId}/cost-snapshots`, { credentials: "include" }),
+      ]);
+
+      if (complianceRes.ok) {
+        const json = await complianceRes.json();
+        setCompliance(json.data);
+      }
+      if (risksRes.ok) {
+        const json = await risksRes.json();
+        setRisks(json.data || []);
+      }
+      if (approvalsRes.ok) {
+        const json = await approvalsRes.json();
+        setApprovals(json.data || []);
+      }
+      if (costsRes.ok) {
+        const json = await costsRes.json();
+        setSnapshots(json.data || []);
       }
     } catch {
-      // ignore
+      // silent fail; UI shows "no data" states
     } finally {
       setLoading(false);
     }
   }, [projectId]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchAll();
+  }, [fetchAll]);
+
+  const immediateActions = useMemo<ImmediateAction[]>(() => {
+    if (!compliance) return [];
+    const gatesSorted = [...compliance.gates].sort(
+      (a, b) => gateOrder.indexOf(a.gate as (typeof gateOrder)[number]) - gateOrder.indexOf(b.gate as (typeof gateOrder)[number])
+    );
+    const blockingGate = gatesSorted.find((g) => g.status === "in_progress" || g.status === "locked");
+    if (!blockingGate) return [];
+
+    const unmet = blockingGate.criteria.filter((c) => !c.met);
+    return unmet.map((criterion) => ({
+      id: `${blockingGate.gate}:${criterion.key}`,
+      gate: blockingGate.gate,
+      criterionKey: criterion.key,
+      label: criterion.label,
+      detail: `Missing ${criterion.label} for Gate ${blockingGate.gate}`,
+    }));
+  }, [compliance]);
+
+  const currentLph = useMemo(() => getCurrentLph(compliance?.phases || []), [compliance]);
+  const openRiskCount = useMemo(() => risks.filter((r) => r.status === "open").length, [risks]);
+  const pendingApprovalCount = useMemo(
+    () => approvals.filter((a) => a.status === "pending" || a.status === "in_review" || a.status === "overdue").length,
+    [approvals]
+  );
+  const budgetStatus = useMemo(() => budgetStatusText(snapshots), [snapshots]);
 
   if (loading) {
     return (
       <AppShell>
-        <div className="animate-pulse space-y-6">
-          <div className="h-14 bg-bg-inset rounded" />
-          <div className="h-64 bg-bg-inset rounded" />
+        <div className="animate-pulse space-y-4">
+          <div className="h-16 bg-bg-inset rounded-xl" />
+          <div className="h-64 bg-bg-inset rounded-xl" />
         </div>
       </AppShell>
     );
   }
 
-  if (!data) {
+  if (!compliance) {
     return (
       <AppShell>
-        <div className="text-center py-20 text-text-quaternary">
-          Project not found
-        </div>
+        <div className="text-center py-20 text-text-quaternary">Project data unavailable.</div>
       </AppShell>
     );
   }
-
-  const { project, currentLph, gates, phases, facts, readiness, actionItems } =
-    data;
-
-  const GATE_NAMES: Record<string, string> = {
-    A: "Project Intake Complete",
-    B: "Planning Ready",
-    C: "Consultant Invitation Ready",
-    D: "Tender Ready",
-    E: "Execution Ready",
-    F: "Closeout Ready",
-  };
 
   return (
     <AppShell>
       <ProjectTopBar projectId={projectId} />
 
-      <div className="space-y-6 mt-6">
-        {/* 3-column layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Column 1: Project Core */}
-          <div className="card p-5 space-y-4">
-            <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wide">
-              Project Core
-            </h3>
-
-            <EditableField
-              label="Project name"
-              value={project.name}
-              projectId={projectId}
-              field="name"
-              onSave={fetchData}
-            />
-            <div>
-              <span className="text-xs text-text-quaternary block mb-0.5">Type</span>
-              <span className="text-sm text-text-primary capitalize">
-                {project.type?.replace(/_/g, " ") || "—"}
+      <div className="w-full space-y-6 mt-6">
+        {/* Top area: Immediate actions + vitals */}
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6">
+          <section id="next-action" className="card p-5 scroll-mt-24">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wide">Immediate Actions</h2>
+              <span className="text-xs text-text-quaternary font-mono">
+                Gate blockers
               </span>
             </div>
-            <EditableField
-              label="Location"
-              value={project.location || ""}
-              projectId={projectId}
-              field="location"
-              onSave={fetchData}
-            />
-            <EditableField
-              label="Client"
-              value={project.clientName || ""}
-              projectId={projectId}
-              field="clientName"
-              onSave={fetchData}
-            />
-            <EditableField
-              label="Client representative"
-              value={project.clientRepresentative || ""}
-              projectId={projectId}
-              field="clientRepresentative"
-              onSave={fetchData}
-            />
-            <div>
-              <span className="text-xs text-text-quaternary block mb-0.5">
-                Procurement model
-              </span>
-              <span className="text-sm text-text-primary capitalize">
-                {project.procurementModel?.replace(/_/g, " ") || "—"}
-              </span>
-            </div>
-            <EditableField
-              label="Project objective"
-              value={project.objective || ""}
-              projectId={projectId}
-              field="objective"
-              multiline
-              onSave={fetchData}
-            />
-            <EditableField
-              label="Scope summary"
-              value={project.scopeSummary || ""}
-              projectId={projectId}
-              field="scopeSummary"
-              multiline
-              onSave={fetchData}
-            />
-            <div>
-              <span className="text-xs text-text-quaternary block mb-0.5">Status</span>
-              <span
-                className={`text-sm font-medium capitalize ${
-                  project.status === "active"
-                    ? "text-gate-complete"
-                    : project.status === "on_hold"
-                    ? "text-brand-orange"
-                    : "text-text-quaternary"
-                }`}
-              >
-                {project.status?.replace(/_/g, " ")}
-              </span>
-            </div>
-          </div>
 
-          {/* Column 2: Readiness Overview */}
-          <div className="card p-5 space-y-5">
-            <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wide">
-              Readiness Overview
-            </h3>
-
-            <ReadinessBar
-              label="Planning Readiness"
-              value={readiness.planning}
-              href={`/projects/${projectId}/phases`}
-            />
-            <ReadinessBar
-              label="Consultant Readiness"
-              value={readiness.consultant}
-              href={`/projects/${projectId}/consultants`}
-            />
-            <ReadinessBar
-              label="Tender Readiness"
-              value={readiness.tender}
-              href={`/projects/${projectId}/procurement`}
-            />
-            <ReadinessBar
-              label="Execution Readiness"
-              value={readiness.execution}
-              href={`/projects/${projectId}/execution`}
-            />
-            <ReadinessBar
-              label="Closeout Readiness"
-              value={readiness.closeout}
-              href={`/projects/${projectId}/execution`}
-            />
-          </div>
-
-          {/* Column 3: Gate Status */}
-          <div className="card p-5 space-y-3">
-            <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wide">
-              Gate Status
-            </h3>
-
-            {gates.map((g) => {
-              const icon =
-                g.status === "complete"
-                  ? "●"
-                  : g.status === "in_progress"
-                  ? "◐"
-                  : "○";
-              const color =
-                g.status === "complete"
-                  ? "text-gate-complete"
-                  : g.status === "in_progress"
-                  ? "text-brand-orange"
-                  : g.status === "overridden"
-                  ? "text-orange-500"
-                  : "text-text-quaternary";
-              const statusLabel =
-                g.status === "complete"
-                  ? "Complete"
-                  : g.status === "in_progress"
-                  ? "In Progress"
-                  : g.status === "overridden"
-                  ? "Overridden*"
-                  : "Locked";
-
-              return (
-                <Link
-                  key={g.gate}
-                  href={`/projects/${projectId}/gates`}
-                  className="flex items-center gap-3 py-2 px-2 rounded-sm hover:bg-bg-inset transition-colors group"
-                >
-                  <span className={`text-lg ${color}`}>{icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-mono font-medium text-text-primary">
-                        Gate {g.gate}
-                      </span>
-                      <span className={`text-xs font-medium ${color}`}>
-                        {statusLabel}
-                      </span>
+            {immediateActions.length === 0 ? (
+              <div className="rounded-xl border border-status-success-border bg-status-success-light/30 p-4 flex items-center gap-3">
+                <CheckCircle2 size={18} className="text-gate-complete" />
+                <div className="text-sm text-text-primary">No active blockers. Current gate can progress.</div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {immediateActions.map((action) => {
+                  return (
+                    <div
+                      key={action.id}
+                      className="rounded-xl border p-4 transition-all duration-300 border-status-danger-border bg-status-danger-light/20"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5">
+                          <ShieldAlert size={18} className="text-status-danger" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold text-text-primary">
+                            {action.detail}
+                          </div>
+                          <div className="text-xs text-text-tertiary mt-1">Required to continue compliance progression.</div>
+                          <div className="mt-2 text-[11px] font-medium text-text-tertiary">
+                            Upload supporting evidence and let AI verify this blocker.
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            router.push(`/projects/${projectId}/gates`);
+                          }}
+                          className="btn-primary text-xs whitespace-nowrap"
+                        >
+                          Mark done
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-xs text-text-quaternary truncate">
-                      {GATE_NAMES[g.gate]}
-                    </p>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <aside className="card p-5 space-y-4">
+            <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wide">Project Vitals</h2>
+
+            <div className="rounded-xl border border-border bg-bg-inset/30 px-4 py-3">
+              <div className="text-xs text-text-quaternary uppercase tracking-wide">Total Risks Open</div>
+              <div className="mt-1 text-2xl font-bold text-text-primary tabular-nums">{openRiskCount}</div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-bg-inset/30 px-4 py-3">
+              <div className="text-xs text-text-quaternary uppercase tracking-wide">Pending Approvals</div>
+              <div className="mt-1 text-2xl font-bold text-text-primary tabular-nums">{pendingApprovalCount}</div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-bg-inset/30 px-4 py-3">
+              <div className="text-xs text-text-quaternary uppercase tracking-wide">Budget Status</div>
+              <div className={`mt-1 text-lg font-semibold ${budgetStatus.tone}`}>{budgetStatus.text}</div>
+              {snapshots.length > 0 && (
+                <div className="mt-1 text-xs text-text-quaternary">
+                  Latest snapshot: {new Date([...snapshots].sort((a, b) => b.snapshotDate.localeCompare(a.snapshotDate))[0].snapshotDate).toLocaleDateString("de-DE")}
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
+
+        {/* Bottom full width: Lifecycle Journey */}
+        <section className="card p-5">
+          <div className="flex items-center justify-between gap-3 mb-5">
+            <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wide">Lifecycle Journey</h2>
+            <span className="text-xs text-text-quaternary">HOAI phases 1-9</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-9 gap-3">
+            {Array.from({ length: 9 }, (_, i) => i + 1).map((lph) => {
+              const isCurrent = lph === currentLph;
+              const isPast = lph < currentLph;
+              const isFuture = lph > currentLph;
+              return (
+                <div
+                  key={lph}
+                  className={[
+                    "rounded-xl border px-3 py-3 transition-colors",
+                    isCurrent
+                      ? "border-brand-orange bg-brand-orange-light/20"
+                      : isPast
+                      ? "border-status-success-border bg-status-success-light/25"
+                      : "border-border bg-bg-inset/20",
+                  ].join(" ")}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-mono text-text-tertiary">LPH {lph}</span>
+                    {isPast ? (
+                      <CheckCircle2 size={14} className="text-gate-complete" />
+                    ) : isCurrent ? (
+                      <Flag size={14} className="text-brand-orange" />
+                    ) : (
+                      <Circle size={14} className="text-text-quaternary" />
+                    )}
                   </div>
-                  <ExternalLink
-                    size={12}
-                    className="text-text-quaternary opacity-0 group-hover:opacity-100 transition-opacity"
-                  />
-                </Link>
+                  <div
+                    className={[
+                      "mt-2 text-xs font-medium",
+                      isCurrent ? "text-brand-orange" : isFuture ? "text-text-quaternary" : "text-text-primary",
+                    ].join(" ")}
+                  >
+                    {isCurrent ? "Current phase" : isFuture ? "Upcoming" : "Completed"}
+                  </div>
+                </div>
               );
             })}
           </div>
-        </div>
-
-        {/* Action Strip */}
-        {actionItems.length > 0 && (
-          <div>
-            <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-3">
-              Action Required
-            </h3>
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {actionItems.map((item, i) => (
-                <Link
-                  key={i}
-                  href={item.link}
-                  className="card p-4 min-w-[260px] shrink-0 hover:border-brand-orange/50 transition-colors"
-                >
-                  <span className="text-xs font-medium text-brand-orange">
-                    {item.category}
-                  </span>
-                  <p className="text-sm text-text-primary mt-1">{item.description}</p>
-                  {item.due && (
-                    <p
-                      className={`text-xs mt-2 ${
-                        item.due < new Date().toISOString().slice(0, 10)
-                          ? "text-health-red font-medium"
-                          : "text-text-quaternary"
-                      }`}
-                    >
-                      Due {item.due}
-                    </p>
-                  )}
-                  <span className="text-xs text-brand-orange font-medium mt-2 inline-flex items-center gap-1">
-                    Resolve
-                    <ArrowRight size={12} />
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Project Facts Table */}
-        {facts.length > 0 && (
-          <div className="card overflow-hidden">
-            <div className="px-5 py-3 border-b border-border">
-              <h3 className="text-xs font-medium text-text-tertiary uppercase tracking-wide">
-                Extracted Facts
-              </h3>
-            </div>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-bg-inset/50">
-                  <th className="text-left px-4 py-2.5 font-medium text-text-tertiary text-xs uppercase tracking-wide">
-                    Field
-                  </th>
-                  <th className="text-left px-4 py-2.5 font-medium text-text-tertiary text-xs uppercase tracking-wide">
-                    Value
-                  </th>
-                  <th className="text-left px-4 py-2.5 font-medium text-text-tertiary text-xs uppercase tracking-wide">
-                    State
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {facts.map((f) => (
-                  <tr
-                    key={f.id}
-                    className="border-b border-border last:border-0"
-                  >
-                    <td className="px-4 py-2.5 text-text-secondary capitalize">
-                      {f.fieldName.replace(/_/g, " ")}
-                    </td>
-                    <td className="px-4 py-2.5 text-text-primary font-medium">
-                      {f.value || "—"}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <DataStateChip state={f.dataState} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        </section>
       </div>
+
     </AppShell>
   );
 }
 
-// ─── Editable field component ─────────────────────────────────
-
-function EditableField({
-  label,
-  value,
-  projectId,
-  field,
-  multiline,
-  onSave,
-}: {
-  label: string;
-  value: string;
-  projectId: string;
-  field: string;
-  multiline?: boolean;
-  onSave: () => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [editValue, setEditValue] = useState(value);
-
-  async function save() {
-    try {
-      await fetch(
-        `${API}/api/projects/${projectId}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({ [field]: editValue }),
-        }
-      );
-      onSave();
-    } catch {
-      // ignore
-    }
-    setEditing(false);
-  }
-
-  if (editing) {
-    return (
-      <div>
-        <span className="text-xs text-text-quaternary block mb-0.5">{label}</span>
-        {multiline ? (
-          <textarea
-            className="input text-sm min-h-[60px] resize-y"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            autoFocus
-          />
-        ) : (
-          <input
-            className="input text-sm"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Enter") save();
-              if (e.key === "Escape") setEditing(false);
-            }}
-          />
-        )}
-        <div className="flex gap-1 mt-1">
-          <button
-            onClick={save}
-            className="p-1 hover:bg-bg-inset rounded-sm"
-          >
-            <Check size={14} className="text-gate-complete" />
-          </button>
-          <button
-            onClick={() => setEditing(false)}
-            className="p-1 hover:bg-bg-inset rounded-sm"
-          >
-            <X size={14} className="text-text-quaternary" />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className="group cursor-pointer"
-      onClick={() => {
-        setEditValue(value);
-        setEditing(true);
-      }}
-    >
-      <span className="text-xs text-text-quaternary block mb-0.5">{label}</span>
-      <span className="text-sm text-text-primary inline-flex items-center gap-1.5">
-        {value || "—"}
-        <Pencil
-          size={12}
-          className="text-text-quaternary opacity-0 group-hover:opacity-100 transition-opacity"
-        />
-      </span>
-    </div>
-  );
-}
-
-// ─── Readiness bar ────────────────────────────────────────────
-
-function ReadinessBar({
-  label,
-  value,
-  href,
-}: {
-  label: string;
-  value: number;
-  href: string;
-}) {
-  return (
-    <Link href={href} className="block group">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-sm text-text-secondary group-hover:text-brand-orange transition-colors">
-          {label}
-        </span>
-        <span className="text-xs font-mono font-medium text-text-tertiary">
-          {value}%
-        </span>
-      </div>
-      <div className="w-full h-1 bg-bg-inset rounded-full overflow-hidden">
-        <div
-          className="h-full bg-brand-orange rounded-full transition-all duration-500"
-          style={{ width: `${Math.min(value, 100)}%` }}
-        />
-      </div>
-    </Link>
-  );
-}
-
-// ─── Data state chip ──────────────────────────────────────────
-
-function DataStateChip({ state }: { state: string }) {
-  const styles: Record<string, string> = {
-    CONFIRMED:
-      "bg-state-confirmed-bg text-state-confirmed-text border-state-confirmed-text",
-    DERIVED:
-      "bg-state-derived-bg text-state-derived-text border-state-derived-text",
-    UNCLEAR:
-      "bg-state-unclear-bg text-state-unclear-text border-state-unclear-text",
-    MISSING:
-      "bg-state-missing-bg text-state-missing-text border-state-missing-text",
-  };
-
-  return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 text-xs font-mono font-medium rounded-sm border ${
-        styles[state] || styles.MISSING
-      }`}
-    >
-      {state}
-    </span>
-  );
-}

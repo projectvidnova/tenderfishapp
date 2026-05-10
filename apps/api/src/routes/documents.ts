@@ -2,6 +2,37 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { db, projects, documents, risks, delayEvents, users } from "@tenderfish/db";
 import { eq, and, asc, desc } from "drizzle-orm";
 import { logAudit } from "../utils/audit";
+import { getSignedUrl, isObjectStorageConfigured } from "../lib/storage";
+import { tryPersistDocumentFileToStorage } from "../services/document-version-storage";
+import { resolveDeclaredMimeType } from "../services/file-parser";
+
+const PREVIEW_MIME: Record<string, string> = {
+  pdf: "application/pdf",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+  xml: "application/xml",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  txt: "text/plain",
+};
+
+function fileNameFromPath(p: string): string {
+  if (!p) return "";
+  const idx = p.lastIndexOf("/");
+  return idx === -1 ? p : p.slice(idx + 1);
+}
+
+function mimeFromName(name: string): string {
+  const dot = name.lastIndexOf(".");
+  if (dot === -1) return "application/octet-stream";
+  return PREVIEW_MIME[name.slice(dot + 1).toLowerCase()] ?? "application/octet-stream";
+}
 
 async function verifyProject(projectId: string, workspaceId: string) {
   return db.query.projects.findFirst({
@@ -41,20 +72,56 @@ export async function documentRoutes(app: FastifyInstance) {
   });
 
   // POST /api/projects/:id/documents
+  // Accepts either multipart/form-data (with `file`, `name`, `type`) or JSON
+  // (backward compat: metadata-only). When a file is attached, it's uploaded to
+  // S3 and the `versions[0].filePath` is set so the file is downloadable + previewable.
   app.post("/projects/:id/documents", async (request: FastifyRequest, reply: FastifyReply) => {
     if (!request.auth) return reply.status(401).send({ error: "Unauthorized" });
     const { id } = request.params as { id: string };
-    const body = request.body as {
-      name: string;
-      type: string;
-      relatedPhaseId?: string;
-      relatedPackageId?: string;
-    };
 
     const project = await verifyProject(id, request.auth.workspaceId);
     if (!project) return reply.status(404).send({ error: "Project not found" });
 
-    if (!body.name?.trim() || !body.type?.trim()) {
+    let name = "";
+    let type = "";
+    let relatedPhaseId: string | null = null;
+    let relatedPackageId: string | null = null;
+    let file: { name: string; mime: string; buffer: Buffer } | null = null;
+
+    if (request.isMultipart()) {
+      for await (const part of request.parts()) {
+        if (part.type === "file") {
+          if (file) continue; // first file only
+          const chunks: Buffer[] = [];
+          for await (const chunk of part.file) chunks.push(chunk);
+          file = {
+            name: part.filename || "upload",
+            mime: part.mimetype || "application/octet-stream",
+            buffer: Buffer.concat(chunks),
+          };
+        } else {
+          const value = (part as { value?: string }).value ?? "";
+          if (part.fieldname === "name") name = value;
+          else if (part.fieldname === "type") type = value;
+          else if (part.fieldname === "relatedPhaseId") relatedPhaseId = value || null;
+          else if (part.fieldname === "relatedPackageId") relatedPackageId = value || null;
+        }
+      }
+      if (!name && file) name = file.name;
+    } else {
+      const body = request.body as {
+        name?: string;
+        type?: string;
+        relatedPhaseId?: string;
+        relatedPackageId?: string;
+      };
+      name = body.name ?? "";
+      type = body.type ?? "";
+      relatedPhaseId = body.relatedPhaseId || null;
+      relatedPackageId = body.relatedPackageId || null;
+    }
+
+    if (!name.trim() || !type.trim()) {
       return reply.status(400).send({ error: "Name and type are required" });
     }
 
@@ -62,11 +129,11 @@ export async function documentRoutes(app: FastifyInstance) {
       .insert(documents)
       .values({
         projectId: id,
-        name: body.name.trim(),
-        type: body.type.trim(),
+        name: name.trim(),
+        type: type.trim(),
         createdBy: request.auth.userId,
-        relatedPhaseId: body.relatedPhaseId || null,
-        relatedPackageId: body.relatedPackageId || null,
+        relatedPhaseId,
+        relatedPackageId,
         versions: [
           {
             version: 1,
@@ -79,6 +146,25 @@ export async function documentRoutes(app: FastifyInstance) {
       })
       .returning();
 
+    if (file) {
+      const resolvedMime = resolveDeclaredMimeType(file.name, file.mime);
+      const persisted = await tryPersistDocumentFileToStorage({
+        workspaceId: request.auth.workspaceId,
+        projectId: id,
+        documentId: created.id,
+        fileName: file.name,
+        buffer: file.buffer,
+        contentType: resolvedMime,
+        uploadedBy: request.auth.userId ?? "system",
+      });
+      if (persisted) {
+        await db
+          .update(documents)
+          .set({ versions: persisted, currentVersion: 1 })
+          .where(eq(documents.id, created.id));
+      }
+    }
+
     await logAudit({
       workspaceId: request.auth.workspaceId,
       projectId: id,
@@ -86,17 +172,17 @@ export async function documentRoutes(app: FastifyInstance) {
       action: "document.create",
       entityType: "document",
       entityId: created.id,
-      afterState: { name: created.name, type: created.type },
+      afterState: { name: created.name, type: created.type, hasFile: !!file },
     });
 
     return reply.status(201).send({ data: created });
   });
 
   // POST /api/projects/:id/documents/:docId/versions — upload new version
+  // Accepts multipart (file + changesNote) or JSON (changesNote only).
   app.post("/projects/:id/documents/:docId/versions", async (request: FastifyRequest, reply: FastifyReply) => {
     if (!request.auth) return reply.status(401).send({ error: "Unauthorized" });
     const { id, docId } = request.params as { id: string; docId: string };
-    const body = request.body as { changesNote?: string };
 
     const project = await verifyProject(id, request.auth.workspaceId);
     if (!project) return reply.status(404).send({ error: "Project not found" });
@@ -105,6 +191,29 @@ export async function documentRoutes(app: FastifyInstance) {
       where: and(eq(documents.id, docId), eq(documents.projectId, id)),
     });
     if (!doc) return reply.status(404).send({ error: "Document not found" });
+
+    let changesNote = "";
+    let file: { name: string; mime: string; buffer: Buffer } | null = null;
+
+    if (request.isMultipart()) {
+      for await (const part of request.parts()) {
+        if (part.type === "file") {
+          if (file) continue;
+          const chunks: Buffer[] = [];
+          for await (const chunk of part.file) chunks.push(chunk);
+          file = {
+            name: part.filename || "upload",
+            mime: part.mimetype || "application/octet-stream",
+            buffer: Buffer.concat(chunks),
+          };
+        } else if ((part as { fieldname?: string }).fieldname === "changesNote") {
+          changesNote = (part as { value?: string }).value ?? "";
+        }
+      }
+    } else {
+      const body = request.body as { changesNote?: string };
+      changesNote = body?.changesNote ?? "";
+    }
 
     const currentVersions = (doc.versions || []) as {
       version: number;
@@ -116,6 +225,24 @@ export async function documentRoutes(app: FastifyInstance) {
     }[];
     const newVersion = currentVersions.length + 1;
 
+    let newVersionFilePath = "";
+    if (file) {
+      const resolvedMime = resolveDeclaredMimeType(file.name, file.mime);
+      const persisted = await tryPersistDocumentFileToStorage({
+        workspaceId: request.auth.workspaceId,
+        projectId: id,
+        documentId: docId,
+        fileName: file.name,
+        buffer: file.buffer,
+        contentType: resolvedMime,
+        uploadedBy: request.auth.userId ?? "system",
+        version: newVersion,
+      });
+      if (persisted && persisted[0]?.filePath) {
+        newVersionFilePath = persisted[0].filePath;
+      }
+    }
+
     const updatedVersions = [
       ...currentVersions,
       {
@@ -123,8 +250,8 @@ export async function documentRoutes(app: FastifyInstance) {
         date: new Date().toISOString(),
         uploadedBy: request.auth.userId,
         status: "draft",
-        changesNote: body.changesNote || undefined,
-        filePath: "",
+        changesNote: changesNote || undefined,
+        filePath: newVersionFilePath,
       },
     ];
 
@@ -184,6 +311,45 @@ export async function documentRoutes(app: FastifyInstance) {
 
     return { data: updated };
   });
+
+  // GET /api/projects/:id/documents/:docId/file-url — signed URL + filename + mime
+  // for the current (or specified) version. Used by the documents list to render previews.
+  app.get(
+    "/projects/:id/documents/:docId/file-url",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!request.auth) return reply.status(401).send({ error: "Unauthorized" });
+      const { id, docId } = request.params as { id: string; docId: string };
+      const { version } = request.query as { version?: string };
+
+      const project = await verifyProject(id, request.auth.workspaceId);
+      if (!project) return reply.status(404).send({ error: "Project not found" });
+
+      const doc = await db.query.documents.findFirst({
+        where: and(eq(documents.id, docId), eq(documents.projectId, id)),
+      });
+      if (!doc) return reply.status(404).send({ error: "Document not found" });
+
+      const versions = (doc.versions ?? []) as { version: number; filePath: string }[];
+      const target = version
+        ? versions.find((v) => v.version === Number(version))
+        : versions.find((v) => v.version === doc.currentVersion) ?? versions[versions.length - 1];
+
+      const filePath = target?.filePath?.trim() ?? "";
+      const fileName = fileNameFromPath(filePath);
+      const mimeType = fileName ? mimeFromName(fileName) : "application/octet-stream";
+
+      if (!filePath || !isObjectStorageConfigured()) {
+        return { data: { url: null, fileName, mimeType } };
+      }
+
+      try {
+        const url = await getSignedUrl(filePath);
+        return { data: { url, fileName, mimeType } };
+      } catch {
+        return { data: { url: null, fileName, mimeType } };
+      }
+    }
+  );
 
   // DELETE /api/projects/:id/documents/:docId
   app.delete("/projects/:id/documents/:docId", async (request: FastifyRequest, reply: FastifyReply) => {

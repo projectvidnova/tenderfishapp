@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
 import { Modal } from "@/components/ui/Modal";
+import { formatDate, formatDateTime } from "@/lib/formatters";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -123,7 +124,7 @@ export default function InboxPage() {
                 >
                   <div className="flex items-start justify-between">
                     <span className="text-xs font-medium text-text-primary truncate max-w-[200px]">{m.fromEmail}</span>
-                    <span className="text-[10px] text-text-quaternary flex-shrink-0">{new Date(m.createdAt).toLocaleDateString()}</span>
+                    <span className="text-[10px] text-text-quaternary flex-shrink-0">{formatDate(m.createdAt)}</span>
                   </div>
                   <p className="text-xs text-text-secondary truncate mt-0.5">{m.subject}</p>
                   <div className="flex items-center gap-1.5 mt-1">
@@ -168,7 +169,7 @@ export default function InboxPage() {
                 </div>
                 <div className="flex items-center gap-3 text-xs text-text-tertiary">
                   <span>From: {selected.fromEmail}</span>
-                  <span>{new Date(selected.createdAt).toLocaleString()}</span>
+                  <span>{formatDateTime(selected.createdAt)}</span>
                 </div>
               </div>
 

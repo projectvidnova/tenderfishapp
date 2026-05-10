@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { Modal } from "@/components/ui/Modal";
+import { formatDate } from "@/lib/formatters";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -158,7 +159,7 @@ export default function ApprovalsPage() {
                     <td className="px-4 py-3 font-medium text-text-primary">{a.name}</td>
                     <td className="px-4 py-3 text-xs text-text-tertiary capitalize">{a.type.replace(/_/g, " ")}</td>
                     <td className="px-4 py-3 text-xs text-text-tertiary">{a.requestedByName || "—"}</td>
-                    <td className="px-4 py-3 text-xs text-text-tertiary font-mono">{a.createdAt ? new Date(a.createdAt).toLocaleDateString() : "—"}</td>
+                    <td className="px-4 py-3 text-xs text-text-tertiary font-mono">{a.createdAt ? formatDate(a.createdAt) : "—"}</td>
                     <td className="px-4 py-3 text-xs text-text-tertiary">{a.approverName || "—"}</td>
                     <td className="px-4 py-3 text-xs text-text-tertiary font-mono">{a.dueDate || "—"}</td>
                     <td className="px-4 py-3">
@@ -310,7 +311,7 @@ export default function ApprovalsPage() {
 
               {showDetail.status === "approved" && showDetail.approvedAt && (
                 <div className="bg-status-success-light border border-green-200 rounded-xl px-4 py-3 text-sm text-status-success-fg">
-                  Approved on {new Date(showDetail.approvedAt).toLocaleDateString()}
+                  Approved on {formatDate(showDetail.approvedAt)}
                   {showDetail.notes && <p className="mt-1 text-xs">{showDetail.notes}</p>}
                 </div>
               )}

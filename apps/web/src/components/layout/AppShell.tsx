@@ -7,11 +7,11 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-bg-bg-bg-page">
       <Sidebar />
       <TopBar />
-      <main className="ml-sidebar mt-topbar min-h-[calc(100vh-52px)] bg-bg-bg-bg-page p-8">
-        <div className="max-w-[1280px]">{children}</div>
+      <main className="ml-72 mt-topbar min-h-[calc(100vh-52px)] p-6 lg:p-8">
+        <div className="w-full max-w-none">{children}</div>
       </main>
     </div>
   );

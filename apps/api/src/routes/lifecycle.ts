@@ -20,6 +20,8 @@ import {
   updateParticipantSchema,
   validateBody,
 } from "../lib/validation";
+import { verifyProjectLvMath } from "../services/gaeb-math-verifier";
+import { logAudit } from "../utils/audit";
 
 export async function lifecycleRoutes(app: FastifyInstance) {
   // ═══════════════════════════════════════════════════════════
@@ -345,6 +347,45 @@ export async function lifecycleRoutes(app: FastifyInstance) {
     if (parsed.data.notes !== undefined) updateData.notes = parsed.data.notes;
 
     if (parsed.data.status === "released") {
+      // GAEB arithmetic gate — V5 §3 "unapproved BOQs prevent starting a tender"
+      const mathReport = await verifyProjectLvMath(request.params.id);
+      updateData.gaebMathVerified = mathReport.passed;
+      updateData.gaebMathErrors = mathReport.errors;
+      updateData.gaebMathCheckedAt = mathReport.checkedAt;
+
+      if (!mathReport.passed) {
+        if (!parsed.data.forceRelease) {
+          return reply.status(409).send({
+            error: "GAEB arithmetic verification failed",
+            message: `${mathReport.errors.length} arithmetic discrepancies must be fixed, or release with forceRelease=true and an overrideReason.`,
+            report: mathReport,
+          });
+        }
+        if (!parsed.data.overrideReason || parsed.data.overrideReason.trim().length === 0) {
+          return reply.status(400).send({
+            error: "overrideReason is required when forceRelease is true",
+          });
+        }
+        updateData.mathOverrideReason = parsed.data.overrideReason;
+        updateData.mathOverrideBy = request.auth.userId;
+        updateData.mathOverrideAt = new Date();
+
+        await logAudit({
+          workspaceId: request.auth.workspaceId,
+          projectId: request.params.id,
+          userId: request.auth.userId,
+          action: "tender.release.math_override",
+          entityType: "tender_release",
+          entityId: request.params.releaseId,
+          beforeState: { gaebMathVerified: false, errors: mathReport.errors },
+          afterState: {
+            forced: true,
+            overrideReason: parsed.data.overrideReason,
+            errorCount: mathReport.errors.length,
+          },
+        });
+      }
+
       updateData.releasedBy = request.auth.userId;
       updateData.releasedAt = new Date();
     } else if (parsed.data.status === "recalled") {
@@ -664,11 +705,22 @@ async function computeTenderPrerequisites(projectId: string) {
     where: eq(tenderPackages.projectId, projectId),
   });
 
+  // Math gate is computed at read-time (cheap when LVs are small) so the
+  // /tender-release GET surfaces the live state to the UI.
+  let mathPassed = false;
+  try {
+    const report = await verifyProjectLvMath(projectId);
+    // Treat "no LVs at all" as not yet met — surfaces that the BoQ is missing.
+    mathPassed = report.passed && report.positionCount > 0;
+  } catch {
+    mathPassed = false;
+  }
+
   return TENDER_RELEASE_PREREQUISITES.map(p => ({
     key: p.key,
     label: p.label,
     category: p.category,
-    met: computePrerequisiteMet(p.key, latestSpd, approvedDocs, latestCost, pkgs),
+    met: computePrerequisiteMet(p.key, latestSpd, approvedDocs, latestCost, pkgs, mathPassed),
   }));
 }
 
@@ -677,7 +729,8 @@ function computePrerequisiteMet(
   spd: { status: string | null } | undefined,
   approvedDocs: unknown[],
   costSnapshot: { status: string | null } | undefined | null,
-  pkgs: { tenderReady: boolean }[]
+  pkgs: { tenderReady: boolean }[],
+  mathPassed: boolean
 ): boolean {
   switch (key) {
     case "spd_approved": return spd?.status === "approved";
@@ -687,6 +740,7 @@ function computePrerequisiteMet(
     case "packages_ready": return pkgs.length > 0 && pkgs.every(p => p.tenderReady);
     case "mandatory_approvals": return spd?.status === "approved" && costSnapshot?.status === "approved";
     case "gate_d_complete": return false; // requires gate query — checked via gate status
+    case "gaeb_math_verified": return mathPassed;
     default: return false;
   }
 }

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { Modal } from "@/components/ui/Modal";
+import { formatDate } from "@/lib/formatters";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -137,7 +138,7 @@ export default function InvitationsPage() {
                     <tr key={inv.id} className="border-b border-border/40">
                       <td className="px-4 py-3 text-xs">{inv.email}</td>
                       <td className="px-4 py-3 text-xs">{ROLE_LABELS[inv.role] || inv.role}</td>
-                      <td className="px-4 py-3 text-xs">{inv.acceptedAt ? new Date(inv.acceptedAt).toLocaleDateString() : "—"}</td>
+                      <td className="px-4 py-3 text-xs">{inv.acceptedAt ? formatDate(inv.acceptedAt) : "—"}</td>
                       <td className="px-4 py-3 text-xs">{inv.invitedByName || "—"}</td>
                     </tr>
                   ))
@@ -171,8 +172,8 @@ export default function InvitationsPage() {
                       <td className="px-4 py-3 text-xs">{inv.email}</td>
                       <td className="px-4 py-3 text-xs">{ROLE_LABELS[inv.role] || inv.role}</td>
                       <td className="px-4 py-3 text-xs">{inv.invitedByName || "—"}</td>
-                      <td className="px-4 py-3 text-xs">{new Date(inv.createdAt).toLocaleDateString()}</td>
-                      <td className="px-4 py-3 text-xs">{new Date(inv.expiresAt).toLocaleDateString()}</td>
+                      <td className="px-4 py-3 text-xs">{formatDate(inv.createdAt)}</td>
+                      <td className="px-4 py-3 text-xs">{formatDate(inv.expiresAt)}</td>
                       <td className="px-4 py-3">
                         <span className={`text-[10px] px-2 py-0.5 rounded ${STATUS_STYLE[inv.status]?.cls || "bg-bg-inset"}`}>
                           {STATUS_STYLE[inv.status]?.label || inv.status}

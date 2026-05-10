@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { Modal } from "@/components/ui/Modal";
+import { formatDate, formatDateTime } from "@/lib/formatters";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -203,7 +204,7 @@ export default function ReviewsPage() {
                     {r.packageName && <p className="text-xs text-text-tertiary mt-0.5">{r.packageName}</p>}
                     {r.contractor && <p className="text-xs text-text-quaternary">{r.contractor}</p>}
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="text-[10px] text-text-quaternary">{new Date(r.submissionDate).toLocaleDateString()}</span>
+                      <span className="text-[10px] text-text-quaternary">{formatDate(r.submissionDate)}</span>
                       {r.isOverdue && <span className="text-[10px] text-status-reject font-semibold">OVERDUE</span>}
                       {r.deviationCount > 0 && (
                         <span className="text-[10px] bg-status-warning-bg text-status-warning-fg px-1.5 py-0.5 rounded">{r.deviationCount} dev</span>
@@ -424,7 +425,7 @@ export default function ReviewsPage() {
                       {OUTCOME_LABELS[selected.reviewOutcome]?.label || selected.reviewOutcome}
                     </span>
                     {selected.reviewComment && <p className="text-xs text-text-secondary mt-1">{selected.reviewComment}</p>}
-                    {selected.reviewDate && <p className="text-[10px] text-text-quaternary">{new Date(selected.reviewDate).toLocaleString()}</p>}
+                    {selected.reviewDate && <p className="text-[10px] text-text-quaternary">{formatDateTime(selected.reviewDate)}</p>}
                   </div>
                 )}
 

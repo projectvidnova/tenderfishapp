@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { db, projects, consultants, gates, tenderPackages, bidders, users } from "@tenderfish/db";
+import { db, projects, consultants, gates, tenderPackages, bidders, users, contracts } from "@tenderfish/db";
 import { eq, and, asc, desc } from "drizzle-orm";
 import { logAudit } from "../utils/audit";
 
@@ -433,6 +433,73 @@ export async function consultantRoutes(app: FastifyInstance) {
       afterState: { status: "awarded", company: bidder.company },
     });
 
-    return { data: updated };
+    // Bridge to post-tender lifecycle: create a draft VOB/B contract from
+    // the awarded bidder + advance the project state to `awarded` if it's
+    // still at `released_for_tender`. Both actions are best-effort — if
+    // they fail, the award itself still stands.
+    let contractId: string | null = null;
+    try {
+      const offerNet = bidder.offerAmount ?? 0;
+      const offerGross = Math.round(offerNet * 1.19);
+      const pkg = await db.query.tenderPackages.findFirst({
+        where: eq(tenderPackages.id, packageId),
+      });
+      const [contract] = await db
+        .insert(contracts)
+        .values({
+          projectId: id,
+          packageId,
+          title: pkg?.name ? `Vertrag: ${pkg.name}` : `Vertrag: ${bidder.company}`,
+          contractType: "vob_b",
+          contractorCompany: bidder.company,
+          contractorContact: bidder.contactName ?? null,
+          contractorEmail: bidder.email ?? null,
+          contractValueNet: offerNet,
+          contractValueGross: offerGross,
+          warrantyPeriodMonths: 48,
+          awardDate: new Date().toISOString().slice(0, 10),
+          status: "draft",
+          createdBy: request.auth.userId,
+        })
+        .returning();
+      contractId = contract.id;
+
+      await logAudit({
+        workspaceId: request.auth.workspaceId,
+        projectId: id,
+        userId: request.auth.userId,
+        action: "contract.create",
+        entityType: "contract",
+        entityId: contract.id,
+        afterState: { source: "bidder.award", contractor: contract.contractorCompany, value: contract.contractValueNet },
+      });
+    } catch (err) {
+      request.log.warn({ err, bidderId }, "Failed to auto-create contract from award");
+    }
+
+    try {
+      const [proj] = await db
+        .select({ lifecycleState: projects.lifecycleState })
+        .from(projects)
+        .where(eq(projects.id, id))
+        .limit(1);
+      if (proj?.lifecycleState === "released_for_tender") {
+        await db.update(projects).set({ lifecycleState: "awarded" }).where(eq(projects.id, id));
+        await logAudit({
+          workspaceId: request.auth.workspaceId,
+          projectId: id,
+          userId: request.auth.userId,
+          action: "project.lifecycle.transition",
+          entityType: "project",
+          entityId: id,
+          beforeState: { lifecycleState: "released_for_tender" },
+          afterState: { lifecycleState: "awarded", trigger: "bidder.award" },
+        });
+      }
+    } catch (err) {
+      request.log.warn({ err, projectId: id }, "Failed to advance lifecycle to awarded");
+    }
+
+    return { data: { ...updated, contractId } };
   });
 }

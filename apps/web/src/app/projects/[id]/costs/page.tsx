@@ -5,6 +5,9 @@ import { useParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { Modal } from "@/components/ui/Modal";
 import { DataStateChip } from "@/components/ui/DataStateChip";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { UploadCloud } from "lucide-react";
+import { DIN276_LEVEL1, formatDin276Label } from "@tenderfish/shared";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -23,15 +26,10 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   superseded: { label: "Superseded", cls: "bg-status-warning-bg text-status-warning-fg" },
 };
 
-const DIN276_GROUPS = [
-  { code: "100", label: "100 – Grundstück (Site)" },
-  { code: "200", label: "200 – Vorbereitende Maßnahmen (Preliminary)" },
-  { code: "300", label: "300 – Bauwerk – Baukonstruktionen (Structure)" },
-  { code: "400", label: "400 – Bauwerk – Technische Anlagen (Services)" },
-  { code: "500", label: "500 – Außenanlagen und Freiflächen (External)" },
-  { code: "600", label: "600 – Ausstattung und Kunstwerke (Equipment)" },
-  { code: "700", label: "700 – Baunebenkosten (Fees & Other)" },
-];
+const DIN276_GROUPS = DIN276_LEVEL1.map((g) => ({
+  code: g.code,
+  label: `${g.code} – ${g.nameDe} (${g.nameEn})`,
+}));
 
 function formatEur(cents: number) {
   return new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(cents / 100);
@@ -63,6 +61,16 @@ type CostLineItem = {
   unitPrice: number | null;
   source: string | null;
   dataState: string | null;
+  din276Confidence?: number | null;
+  din276Source?: string | null;
+  din276Rationale?: string | null;
+};
+
+type ProjectFact = {
+  id: string;
+  fieldName: string;
+  value: string | null;
+  dataState: string;
 };
 
 export default function CostsPage() {
@@ -74,6 +82,8 @@ export default function CostsPage() {
   const [showAddItem, setShowAddItem] = useState(false);
   const [form, setForm] = useState({ costStage: "kostenrahmen", snapshotDate: new Date().toISOString().slice(0, 10), notes: "" });
   const [itemForm, setItemForm] = useState({ costGroupCode: "300", description: "", amountNet: "", amountGross: "", source: "estimate", dataState: "DERIVED" });
+  const [facts, setFacts] = useState<ProjectFact[]>([]);
+  const [confirmingFactId, setConfirmingFactId] = useState<string | null>(null);
 
   const fetchSnapshots = useCallback(async () => {
     try {
@@ -88,7 +98,24 @@ export default function CostsPage() {
     setLoading(false);
   }, [id]);
 
-  useEffect(() => { fetchSnapshots(); }, [fetchSnapshots]);
+  const fetchFacts = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/api/projects/${id}/facts`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setFacts(json.data || []);
+      }
+    } catch {
+      // ignore
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchSnapshots();
+    fetchFacts();
+  }, [fetchSnapshots, fetchFacts]);
 
   async function createSnapshot() {
     const res = await fetch(`${API}/api/projects/${id}/cost-snapshots`, {
@@ -142,7 +169,35 @@ export default function CostsPage() {
     if (showDetail?.id === snapId) openDetail(showDetail);
   }
 
+  async function confirmFact(factId: string) {
+    try {
+      setConfirmingFactId(factId);
+      await fetch(`${API}/api/projects/${id}/facts/${factId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ dataState: "CONFIRMED" }),
+      });
+      await fetchFacts();
+    } catch {
+      // ignore
+    } finally {
+      setConfirmingFactId(null);
+    }
+  }
+
   if (loading) return <AppShell><div className="p-8 text-text-quaternary">Loading…</div></AppShell>;
+
+  const aiCostFacts = facts.filter((fact) => fact.fieldName === "cost_item");
+  const parseFact = (raw: string | null): Record<string, unknown> | null => {
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
+  };
 
   return (
     <AppShell>
@@ -178,39 +233,113 @@ export default function CostsPage() {
         </div>
 
         <div className="card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-bg-inset/30">
-                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Stage</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Date</th>
-                <th className="text-right px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Net</th>
-                <th className="text-right px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Gross</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Status</th>
-                <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {snapshots.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-text-quaternary">No cost snapshots yet. Create one to begin tracking costs.</td></tr>
-              ) : snapshots.map((s) => (
-                <tr key={s.id} className="border-b border-border last:border-0 hover:bg-bg-inset/20">
-                  <td className="px-4 py-3 font-medium">{COST_STAGES.find((cs) => cs.value === s.costStage)?.label || s.costStage}</td>
-                  <td className="px-4 py-3 text-text-secondary">{new Date(s.snapshotDate).toLocaleDateString("de-DE")}</td>
-                  <td className="px-4 py-3 text-right font-mono">{s.totalNet ? formatEur(s.totalNet) : "—"}</td>
-                  <td className="px-4 py-3 text-right font-mono font-medium">{s.totalGross ? formatEur(s.totalGross) : "—"}</td>
-                  <td className="px-4 py-3">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUS_LABELS[s.status]?.cls || "bg-bg-inset text-text-tertiary"}`}>
-                      {STATUS_LABELS[s.status]?.label || s.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button className="text-xs text-brand-orange hover:text-brand-orange-hover font-medium" onClick={() => openDetail(s)}>View</button>
-                  </td>
+          {snapshots.length === 0 ? (
+            <div className="p-6">
+              <EmptyState
+                icon={<UploadCloud size={20} />}
+                title="No DIN 276 Cost Data Yet"
+                description="To generate your automated Cost Group mapping, please upload your initial Kostenschätzung or Bill of Quantities."
+                primaryActionText="Upload Cost Document"
+                primaryActionOnClick={() => setShowAdd(true)}
+              />
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-bg-inset/30">
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Stage</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Date</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Net</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Gross</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Status</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {snapshots.map((s) => (
+                  <tr key={s.id} className="border-b border-border last:border-0 hover:bg-bg-inset/20">
+                    <td className="px-4 py-3 font-medium">{COST_STAGES.find((cs) => cs.value === s.costStage)?.label || s.costStage}</td>
+                    <td className="px-4 py-3 text-text-secondary">{new Date(s.snapshotDate).toLocaleDateString("de-DE")}</td>
+                    <td className="px-4 py-3 text-right font-mono">{s.totalNet ? formatEur(s.totalNet) : "—"}</td>
+                    <td className="px-4 py-3 text-right font-mono font-medium">{s.totalGross ? formatEur(s.totalGross) : "—"}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${STATUS_LABELS[s.status]?.cls || "bg-bg-inset text-text-tertiary"}`}>
+                        {STATUS_LABELS[s.status]?.label || s.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button className="text-xs text-brand-orange hover:text-brand-orange-hover font-medium" onClick={() => openDetail(s)}>View</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
+
+        {aiCostFacts.length > 0 && (
+          <div className="card overflow-hidden">
+            <div className="px-4 py-3 border-b border-border bg-bg-inset/30">
+              <h2 className="text-sm font-semibold">AI-Extracted Cost Rows (DIN 276)</h2>
+              <p className="text-xs text-text-tertiary mt-0.5">
+                These rows are inferred from uploaded documents and linked to source documents.
+              </p>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-bg-inset/20">
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">DIN Group</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Description</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-text-tertiary uppercase font-mono">Qty</th>
+                  <th className="text-right px-4 py-2 text-xs font-medium text-text-tertiary uppercase font-mono">Amount (EUR)</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">State</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-text-tertiary uppercase">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aiCostFacts.map((fact) => {
+                  const parsed = parseFact(fact.value);
+                  const din = typeof parsed?.din276_code === "string" ? parsed.din276_code : "—";
+                  const description = typeof parsed?.description === "string" ? parsed.description : "—";
+                  const quantity =
+                    typeof parsed?.quantity === "number"
+                      ? parsed.quantity.toLocaleString("de-DE")
+                      : "—";
+                  const amount =
+                    typeof parsed?.amount === "number"
+                      ? new Intl.NumberFormat("de-DE", {
+                          style: "currency",
+                          currency: "EUR",
+                          maximumFractionDigits: 0,
+                        }).format(parsed.amount)
+                      : "—";
+                  return (
+                    <tr key={fact.id} className="border-b border-border last:border-0">
+                      <td className="px-4 py-2 font-mono text-xs font-semibold">{din}</td>
+                      <td className="px-4 py-2 text-text-secondary">{description}</td>
+                      <td className="px-4 py-2 text-right font-mono">{quantity}</td>
+                      <td className="px-4 py-2 text-right font-mono">{amount}</td>
+                      <td className="px-4 py-2">
+                        <DataStateChip state={fact.dataState} />
+                      </td>
+                      <td className="px-4 py-2">
+                        {fact.dataState !== "CONFIRMED" && (
+                          <button
+                            onClick={() => confirmFact(fact.id)}
+                            disabled={confirmingFactId === fact.id}
+                            className="text-xs font-medium text-brand-orange hover:text-brand-orange-hover disabled:opacity-50"
+                          >
+                            Review & Confirm
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         <Modal open={showAdd} onClose={() => setShowAdd(false)} title="New Cost Snapshot">
           <div className="space-y-4">
@@ -323,12 +452,21 @@ export default function CostsPage() {
                       <tr><td colSpan={6} className="px-4 py-6 text-center text-text-quaternary">No line items yet.</td></tr>
                     ) : showDetail.lineItems.map((item) => (
                       <tr key={item.id} className="border-b border-border last:border-0">
-                        <td className="px-4 py-2 font-mono text-xs font-medium">{item.costGroupCode}</td>
+                        <td className="px-4 py-2 font-mono text-xs font-medium" title={formatDin276Label(item.costGroupCode)}>
+                          {item.costGroupCode}
+                        </td>
                         <td className="px-4 py-2 text-text-secondary">{item.description || "—"}</td>
                         <td className="px-4 py-2 text-right font-mono">{formatEur(item.amountNet)}</td>
                         <td className="px-4 py-2 text-right font-mono font-medium">{formatEur(item.amountGross)}</td>
                         <td className="px-4 py-2 text-xs text-text-tertiary">{item.source || "—"}</td>
-                        <td className="px-4 py-2">{item.dataState && <DataStateChip state={item.dataState} />}</td>
+                        <td className="px-4 py-2">
+                          {item.dataState && (
+                            <DataStateChip
+                              state={item.dataState}
+                              confidence={item.din276Confidence ?? undefined}
+                            />
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

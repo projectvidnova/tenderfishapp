@@ -1,16 +1,15 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { db, jobs, projects, projectFacts, phases, gates, documents } from "@tenderfish/db";
+import { db, jobs, projects, projectFacts, documents } from "@tenderfish/db";
 import { eq, and } from "drizzle-orm";
-import { LPH_PHASES, GATE_DEFINITIONS } from "@tenderfish/shared";
-import type { GateLetter, LphNumber } from "@tenderfish/shared";
-import { parseAllFiles } from "../services/file-parser";
+import { processFile } from "../services/ai-pipeline";
+import { ensureProjectBootstrap, syncLatestDraftSpd } from "../services/project-bootstrap";
+import { refreshAndAutoCompleteGates } from "../services/gate-evaluator";
 import {
-  extractFacts,
-  classifyProject,
-  checkGateEligibility,
-  generateProjectStructure,
-  extractTextFromImage,
-} from "../services/ai-pipeline";
+  deleteIntakeDerivedFactsBatch,
+  insertFactsFromProcessFileOutput,
+} from "../services/process-file-facts";
+import { tryPersistDocumentFileToStorage } from "../services/document-version-storage";
+import { resolveDeclaredMimeType } from "../services/file-parser";
 
 const INTAKE_STEPS = [
   { key: "upload", label: "Uploading files", status: "complete" },
@@ -20,6 +19,47 @@ const INTAKE_STEPS = [
   { key: "structuring", label: "Generating structure", status: "pending" },
   { key: "gates", label: "Checking gates", status: "pending" },
 ];
+
+function titleFromSummary(summary: string): string {
+  const normalized = summary
+    .replace(/\s+/g, " ")
+    .replace(/[^\w\s\-.,]/g, "")
+    .trim();
+  if (!normalized) return "";
+  const sentence = normalized.split(/[.!?]/)[0]?.trim() || "";
+  if (!sentence) return "";
+  const cleaned = sentence
+    .replace(/^(project overview|summary|project summary)\s*[:\-]\s*/i, "")
+    .replace(/\b(the project (focuses|includes|covers)\b.*)$/i, "")
+    .trim();
+  return cleaned.slice(0, 80);
+}
+
+function buildGeneratedProjectName(params: {
+  fallbackName?: string;
+  clientName?: string;
+  location?: string;
+  summary?: string;
+  fileNameHint?: string;
+}): string {
+  const fallback = (params.fallbackName || "Untitled Project").trim();
+  const client = (params.clientName || "").trim();
+  const location = (params.location || "").trim();
+  const summaryTitle = titleFromSummary(params.summary || "");
+  const fileNameHint = (params.fileNameHint || "")
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // Prefer evidence from uploaded docs over user-entered fallback values.
+  if (summaryTitle) return summaryTitle;
+  if (client && location) return `${client} - ${location} Project`;
+  if (client) return `${client} Project`;
+  if (location) return `${location} Project`;
+  if (fileNameHint) return fileNameHint.slice(0, 80);
+  return fallback;
+}
 
 export async function jobRoutes(app: FastifyInstance) {
   // POST /api/projects/intake — start AI intake pipeline
@@ -66,6 +106,14 @@ export async function jobRoutes(app: FastifyInstance) {
         })
         .returning();
 
+      await ensureProjectBootstrap(project.id, request.auth.userId, {
+        name: formData.projectName || "New Project (Processing)",
+        type: "not_sure",
+        objective: null,
+        scopeSummary: null,
+        currentLph: 1,
+      });
+
       // Create the job
       const [job] = await db
         .insert(jobs)
@@ -80,7 +128,14 @@ export async function jobRoutes(app: FastifyInstance) {
         .returning();
 
       // Run the pipeline asynchronously
-      runIntakePipeline(job.id, project.id, fileBuffers, formData).catch(
+      runIntakePipeline(
+        job.id,
+        project.id,
+        request.auth.workspaceId,
+        request.auth.userId ?? "",
+        fileBuffers,
+        formData
+      ).catch(
         (err) => {
           console.error("Intake pipeline failed:", err);
         }
@@ -200,12 +255,24 @@ export async function jobRoutes(app: FastifyInstance) {
           updates.scopeSummary = body.projectUpdates.scopeSummary;
 
         if (Object.keys(updates).length > 0) {
-          await db
+          const [updatedProject] = await db
             .update(projects)
             .set(updates)
-            .where(eq(projects.id, project.id));
+            .where(eq(projects.id, project.id))
+            .returning();
+
+          await syncLatestDraftSpd(project.id, {
+            name: updatedProject.name,
+            type: updatedProject.type,
+            location: updatedProject.location,
+            objective: updatedProject.objective,
+            scopeSummary: updatedProject.scopeSummary,
+            currentLph: 1,
+          });
         }
       }
+
+      await refreshAndAutoCompleteGates(project.id);
 
       return { data: { confirmed: true } };
     }
@@ -247,154 +314,213 @@ async function failJob(jobId: string, error: string) {
 async function runIntakePipeline(
   jobId: string,
   projectId: string,
+  workspaceId: string,
+  uploadedByUserId: string,
   fileBuffers: { name: string; mime: string; buffer: Buffer }[],
   formData: Record<string, string>
 ) {
   try {
-    // Step 1: Parse files
-    await updateJobStep(jobId, "parsing", "processing", "parsing");
-
-    const parsedFiles = fileBuffers.map((f) => ({
-      fileName: f.name,
-      mimeType: f.mime,
-      buffer: f.buffer,
-    }));
-    const { combinedText: documentText, imageBuffers } = await parseAllFiles(parsedFiles);
-
-    // Handle images with Claude Vision
-    let fullText = documentText;
-    for (const img of imageBuffers) {
-      const imageText = await extractTextFromImage(img.buffer, img.fileName);
-      if (imageText) {
-        fullText += `\n\n--- Image: ${img.fileName} ---\n${imageText}`;
-      }
-    }
-
-    // Add pasted text if present
-    if (formData.pastedText?.trim()) {
-      fullText += `\n\n--- Pasted Text ---\n${formData.pastedText}`;
-    }
-
-    await updateJobStep(jobId, "parsing", "complete", "extracting");
-
-    if (!fullText.trim()) {
-      await failJob(jobId, "No text content could be extracted from the uploaded files");
+    if (fileBuffers.length === 0) {
+      await failJob(jobId, "No files uploaded");
       return;
     }
 
-    // Step 2: Extract facts
+    await updateJobStep(jobId, "parsing", "processing", "parsing");
+    await updateJobStep(jobId, "parsing", "complete", "extracting");
     await updateJobStep(jobId, "extracting", "processing");
-    const factResult = await extractFacts(fullText, formData);
+
+    const allMissingData = new Set<string>();
+    const allProjectSummaries: string[] = [];
+    const presentationSections: string[] = [];
+    const insertedFactKeys = new Set<string>();
+    const inferredProjectOverview: {
+      clientName?: string;
+      location?: string;
+      objective?: string;
+      currentHoaiPhase?: number;
+      buildingPermitStatus?: string;
+      commissionedPhases?: number[];
+    } = {};
+
+    const performanceMetrics: {
+      document_id: string;
+      file_name: string;
+      extraction_ms: number;
+      ai_processing_ms: number;
+      total_tokens_used: number;
+      ai_calls_count: number;
+      model_used: string[];
+    }[] = [];
+
+    await deleteIntakeDerivedFactsBatch(projectId);
+
+    for (const file of fileBuffers) {
+      const resolvedMime = resolveDeclaredMimeType(file.name, file.mime);
+
+      const [documentRecord] = await db
+        .insert(documents)
+        .values({
+          projectId,
+          name: file.name,
+          type: resolvedMime,
+          versions: [],
+          sourceChannel: "intake_upload",
+          confidence: 100,
+        })
+        .returning();
+
+      const persisted = await tryPersistDocumentFileToStorage({
+        workspaceId,
+        projectId,
+        documentId: documentRecord.id,
+        fileName: file.name,
+        buffer: file.buffer,
+        contentType: resolvedMime,
+        uploadedBy: uploadedByUserId || "system",
+      });
+
+      if (persisted) {
+        await db
+          .update(documents)
+          .set({ versions: persisted, currentVersion: 1 })
+          .where(eq(documents.id, documentRecord.id));
+      }
+
+      const processed = await processFile({
+        project_id: projectId,
+        document_id: documentRecord.id,
+        file_name: file.name,
+        mime_type: resolvedMime,
+        buffer: file.buffer,
+      });
+
+      await insertFactsFromProcessFileOutput(
+        projectId,
+        documentRecord.id,
+        processed,
+        insertedFactKeys
+      );
+
+      if (processed.structured.project_summary.trim()) {
+        allProjectSummaries.push(processed.structured.project_summary.trim());
+        inferredProjectOverview.objective ||= processed.structured.project_summary.trim();
+      }
+      if (processed.presentation_text.trim()) {
+        presentationSections.push(processed.presentation_text.trim());
+      }
+      for (const item of processed.structured.missing_data) {
+        allMissingData.add(item);
+      }
+
+      performanceMetrics.push({
+        document_id: documentRecord.id,
+        file_name: file.name,
+        ...processed.performance_metrics,
+      });
+
+      const overview = processed.structured.project_overview;
+      if (overview.client_name && !inferredProjectOverview.clientName) {
+        inferredProjectOverview.clientName = overview.client_name;
+      }
+      const loc = overview.location?.trim();
+      if (loc && !inferredProjectOverview.location) {
+        inferredProjectOverview.location = loc;
+      }
+      if (
+        overview.building_permit_status &&
+        !inferredProjectOverview.buildingPermitStatus
+      ) {
+        inferredProjectOverview.buildingPermitStatus = overview.building_permit_status;
+      }
+      if (
+        overview.commissioned_phases.length > 0 &&
+        !inferredProjectOverview.commissionedPhases
+      ) {
+        inferredProjectOverview.commissionedPhases = overview.commissioned_phases;
+      }
+
+      if (processed.structured.current_hoai_phase !== null) {
+        inferredProjectOverview.currentHoaiPhase ||= processed.structured.current_hoai_phase;
+      } else {
+        allMissingData.add("current_hoai_phase");
+      }
+    }
+
+    const gateChecks = await refreshAndAutoCompleteGates(projectId);
+
     await updateJobStep(jobId, "extracting", "complete", "classifying");
-
-    // Step 3: Classify project
-    await updateJobStep(jobId, "classifying", "processing");
-    const classification = await classifyProject(fullText, factResult.facts);
     await updateJobStep(jobId, "classifying", "complete", "structuring");
-
-    // Step 4: Generate project structure
-    await updateJobStep(jobId, "structuring", "processing");
-    const structure = await generateProjectStructure(
-      fullText,
-      factResult.facts,
-      classification
-    );
     await updateJobStep(jobId, "structuring", "complete", "gates");
-
-    // Step 5: Gate check (deterministic)
-    await updateJobStep(jobId, "gates", "processing");
-    const gateChecks = checkGateEligibility(factResult.facts);
     await updateJobStep(jobId, "gates", "complete");
 
-    // ─── Persist to database ─────────────────────────────────
+    const generatedProjectName = buildGeneratedProjectName({
+      fallbackName: formData.projectName || "Untitled Project",
+      clientName: inferredProjectOverview.clientName,
+      location:
+        inferredProjectOverview.location ||
+        formData.location ||
+        formData.projectLocation ||
+        "",
+      summary: inferredProjectOverview.objective || allProjectSummaries[0] || "",
+      fileNameHint: fileBuffers[0]?.name || "",
+    });
 
-    // Update project with classification info
+    const resolvedLocation =
+      inferredProjectOverview.location ||
+      formData.location ||
+      formData.projectLocation ||
+      null;
+
     await db
       .update(projects)
       .set({
-        name: factResult.facts.find((f) => f.field === "project_name")?.value || formData.projectName || "Untitled Project",
-        type: classification.type as typeof projects.type.enumValues[number],
-        procurementModel: classification.delivery_model as typeof projects.procurementModel.enumValues[number],
-        location: factResult.facts.find((f) => f.field === "location")?.value || undefined,
-        clientName: factResult.facts.find((f) => f.field === "client_name")?.value || undefined,
-        clientRepresentative: factResult.facts.find((f) => f.field === "client_representative")?.value || undefined,
-        objective: factResult.facts.find((f) => f.field === "scope_description")?.value || undefined,
-        targetCompletion: factResult.facts.find((f) => f.field === "target_completion")?.value || undefined,
+        name: generatedProjectName,
+        objective: inferredProjectOverview.objective || undefined,
+        clientName: inferredProjectOverview.clientName || undefined,
+        location: resolvedLocation || undefined,
         lifecycleState: "parsed",
       })
       .where(eq(projects.id, projectId));
 
-    // Auto-transition to needs_review if many facts are low-confidence
-    const lowConfidenceFacts = factResult.facts.filter(
-      (f) => f.data_state === "UNCLEAR" || f.data_state === "MISSING"
-    );
-    if (lowConfidenceFacts.length > factResult.facts.length * 0.4) {
-      await db
-        .update(projects)
-        .set({ lifecycleState: "needs_review" })
-        .where(eq(projects.id, projectId));
-    }
+    await syncLatestDraftSpd(projectId, {
+      name: generatedProjectName,
+      type: "not_sure",
+      location: resolvedLocation,
+      objective: inferredProjectOverview.objective || allProjectSummaries[0] || null,
+      scopeSummary: inferredProjectOverview.objective || allProjectSummaries[0] || null,
+      currentLph: inferredProjectOverview.currentHoaiPhase || 1,
+    });
 
-    // Insert extracted facts
-    for (const fact of factResult.facts) {
-      await db.insert(projectFacts).values({
-        projectId,
-        fieldName: fact.field,
-        value: fact.value,
-        dataState: fact.data_state as typeof projectFacts.dataState.enumValues[number],
-        sourceRef: fact.source_quote,
-      });
-    }
-
-    // Insert LPH phases from AI structure
-    for (const lph of structure.lph_roadmap) {
-      await db.insert(phases).values({
-        projectId,
-        lph: lph.lph,
-        status: lph.lph <= classification.lph_current ? "active" : "not_started",
-        startDate: lph.estimated_start || undefined,
-        endDate: lph.estimated_end || undefined,
-        objective: `${lph.name}: ${lph.work_packages.join(", ")}`,
-      });
-    }
-
-    // Insert gates with criteria from AI analysis
-    for (const gc of gateChecks) {
-      await db.insert(gates).values({
-        projectId,
-        gate: gc.gate as typeof gates.gate.enumValues[number],
-        status: gc.pass ? "complete" : "locked",
-        criteria: gc.criteria.map((c) => ({
-          key: c.key,
-          label: c.label,
-          met: c.met,
-          autoCheck: true,
-        })),
-      });
-    }
-
-    // Complete the job with full result data
     await db
       .update(jobs)
       .set({
         status: "complete",
         currentStep: undefined,
         result: {
-          classification,
+          project_summary: allProjectSummaries[0] || "",
           gateChecks,
-          structure: {
-            responsibilityStructure: structure.responsibility_structure,
-            approvalStructure: structure.approval_structure,
-            consultantRequirements: structure.consultant_requirements,
-            riskRegister: structure.risk_register,
-            missingInformation: structure.missing_information,
+          missing_data: Array.from(allMissingData),
+          presentation_text: presentationSections.join("\n\n---\n\n"),
+          review_burden_metrics: {
+            auto_captured_facts: insertedFactKeys.size,
+            manual_entry_baseline: 25,
+            burden_reduction_percent: Math.max(
+              0,
+              Math.round((1 - insertedFactKeys.size / 25) * 100)
+            ),
           },
-          factCount: factResult.facts.length,
-          phaseCount: structure.lph_roadmap.length,
+          performance_metrics: performanceMetrics,
         },
         updatedAt: new Date(),
       })
       .where(eq(jobs.id, jobId));
+
+    console.info("v5_intake_performance", {
+      project_id: projectId,
+      extraction_ms: performanceMetrics.reduce((sum, item) => sum + item.extraction_ms, 0),
+      ai_latency_ms: performanceMetrics.reduce((sum, item) => sum + item.ai_processing_ms, 0),
+      files_processed: performanceMetrics.length,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown pipeline error";
     await failJob(jobId, message);

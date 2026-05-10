@@ -203,10 +203,8 @@ export default function Home() {
         <div className="max-w-[1120px] mx-auto flex justify-between items-center">
           <div className="text-xs text-text-tertiary">© 2026 Tenderfish. All rights reserved.</div>
           <div className="flex gap-6 text-xs text-text-tertiary">
-            <a href="#" className="hover:text-text-primary transition-colors">Privacy</a>
-            <a href="#" className="hover:text-text-primary transition-colors">Terms</a>
-            <a href="#" className="hover:text-text-primary transition-colors">Imprint</a>
-            <a href="#" className="hover:text-text-primary transition-colors">Contact</a>
+            <a href="/datenschutz" className="hover:text-text-primary transition-colors">Datenschutz</a>
+            <a href="/impressum" className="hover:text-text-primary transition-colors">Impressum</a>
           </div>
         </div>
       </footer>

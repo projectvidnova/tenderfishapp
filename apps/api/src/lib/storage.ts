@@ -27,6 +27,15 @@ const s3 = new S3Client({
 
 const bucketName = env.S3_BUCKET_NAME;
 
+/** True when server-side uploads and re-download (gate rescan) are available. */
+export function isObjectStorageConfigured(): boolean {
+  return Boolean(
+    env.S3_ENDPOINT?.trim() &&
+      env.S3_ACCESS_KEY_ID?.trim() &&
+      env.S3_SECRET_ACCESS_KEY?.trim()
+  );
+}
+
 interface UploadParams {
   workspaceId: string;
   projectId: string;
@@ -89,6 +98,30 @@ export async function uploadRawFile(
 }
 
 /**
+ * Download object bytes from S3-compatible storage (for server-side re-processing).
+ */
+export async function downloadFileBuffer(storagePath: string): Promise<Buffer | null> {
+  if (!storagePath?.trim()) return null;
+  try {
+    const res = await s3.send(
+      new GetObjectCommand({
+        Bucket: bucketName,
+        Key: storagePath,
+      })
+    );
+    const body = res.Body;
+    if (!body) return null;
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of body as AsyncIterable<Uint8Array>) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Generate a signed URL for temporary file access.
  */
 export async function getSignedUrl(storagePath: string): Promise<string> {
@@ -135,12 +168,16 @@ export async function fileExists(storagePath: string): Promise<boolean> {
 export const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/msword",
   "application/vnd.ms-outlook",
   "message/rfc822",
   "text/plain",
+  "text/csv",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
   "image/jpeg",
   "image/png",
+  "image/webp",
 ]);
 
 export const MAX_FILE_SIZE = env.MAX_FILE_SIZE_BYTES;

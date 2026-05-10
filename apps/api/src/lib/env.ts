@@ -17,6 +17,8 @@ const envSchema = z.object({
   // IONOS AI (required when AI_PROVIDER=ionos)
   IONOS_API_KEY: z.string().optional().transform(v => v === "" ? undefined : v),
   IONOS_AI_BASE_URL: z.string().url().default("https://openai.inference.de-txl.ionos.com/v1"),
+  GROQ_API_KEY: z.string().optional().transform(v => v === "" ? undefined : v),
+  GROQ_BASE_URL: z.string().url().default("https://api.groq.com/openai/v1"),
 
   // Optional with defaults
   PORT: z.coerce.number().int().positive().default(3001),
@@ -66,6 +68,8 @@ const envSchema = z.object({
   // AI models (per-provider)
   ANTHROPIC_MODEL: z.string().default("claude-sonnet-4-20250514"),
   IONOS_AI_MODEL: z.string().default("meta-llama/Meta-Llama-3.1-8B-Instruct"),
+  /** Multimodal model for IONOS chat/completions (image + text). See AI Model Hub model cards. */
+  IONOS_VISION_MODEL: z.string().default("mistralai/Mistral-Small-24B-Instruct"),
   AI_MAX_TOKENS_EXTRACT: z.coerce.number().int().positive().default(4096),
   AI_MAX_TOKENS_CLASSIFY: z.coerce.number().int().positive().default(2048),
   AI_MAX_TOKENS_CHAT: z.coerce.number().int().positive().default(1024),
